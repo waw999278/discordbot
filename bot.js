@@ -6,14 +6,16 @@
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
+require('dotenv').config();
+
 const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { QuickDB } = require('quick.db');
 const ms = require('ms');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const PREFIX = '!';
-const TOKEN = 'VOTRE_TOKEN_ICI'; // Remplacez par votre token
-const OWNER_ID = 'VOTRE_ID_ICI'; // Votre ID Discord
+const TOKEN = process.env.TOKEN;       // Variable Railway ou fichier .env
+const OWNER_ID = process.env.OWNER_ID; // Variable Railway ou fichier .env
 
 const db = new QuickDB();
 const client = new Client({

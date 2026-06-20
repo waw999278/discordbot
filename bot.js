@@ -1,12 +1,3 @@
-// ============================================================
-//  Discord Premium Bot — bot.js
-//  100 Slash Commands | discord.js v14
-//  Setup: npm install  →  node bot.js
-//  Requires a .env file with:
-//    DISCORD_TOKEN=your_bot_token
-//    CLIENT_ID=your_application_id
-//    GUILD_ID=your_server_id   (optional – for instant guild deploy)
-// ============================================================
 
 require("dotenv").config();
 const {
@@ -32,6 +23,9 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+// ─── PREFIX ────────────────────────────────────────────────
+const PREFIX = "!";
 
 // ─── COLOUR PALETTE ────────────────────────────────────────
 const COLORS = {
@@ -987,6 +981,121 @@ client.on("guildMemberAdd", async member => {
   const channel = member.guild.systemChannel;
   if (channel) {
     await channel.send({ embeds: [embed("👋 Welcome!", `Welcome to **${member.guild.name}**, ${member}! 🎉\nYou are member **#${member.guild.memberCount}**.`, COLORS.green).setThumbnail(member.user.displayAvatarURL())] });
+  }
+});
+
+// ─── PREFIX (!) MESSAGE HANDLER ────────────────────────────
+client.on("messageCreate", async message => {
+  if (message.author.bot) return;
+  if (!message.content.startsWith(PREFIX)) return;
+
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const commandName = args.shift().toLowerCase();
+
+  // Map prefix commands → slash command handlers
+  const prefixMap = {
+    ping:          "ping",
+    help:          "help",
+    ban:           "ban",
+    kick:          "kick",
+    mute:          "mute",
+    unmute:        "unmute",
+    warn:          "warn",
+    purge:         "purge",
+    lock:          "lock",
+    unlock:        "unlock",
+    unban:         "unban",
+    serverinfo:    "serverinfo",
+    userinfo:      "userinfo",
+    avatar:        "avatar",
+    botinfo:       "botinfo",
+    uptime:        "uptime",
+    coinflip:      "coinflip",
+    dice:          "dice",
+    meme:          "meme",
+    quote:         "quote",
+    stats:         "stats",
+    balance:       "balance",
+    daily:         "daily",
+    work:          "work",
+    shop:          "shop",
+    leaderboard:   "leaderboard",
+    ticket:        "ticket",
+    arcane:        "arcane",
+    kingpremium:   "kingpremium",
+    sapphire:      "sapphirecircle",
+    dyno:          "dynopremium",
+    mee6:          "mee6premium",
+    nitro:         "nitropremium",
+    vip:           "vippremium",
+    elite:         "elitepremium",
+    diamond:       "diamondpremium",
+    god:           "godpremium",
+    premiumtiers:  "premiumtiers",
+    subscribe:     "subscribe",
+    redeem:        "redeem",
+    invite:        "invite",
+    support:       "support",
+    suggest:       "suggest",
+    report:        "report",
+    afk:           "afk",
+    boostinfo:     "boostinfo",
+    members:       "members",
+    roles:         "roles",
+    emojis:        "emojis",
+    rank:          "rank",
+    play:          "play",
+    skip:          "skip",
+    stop:          "stop",
+    queue:         "queue",
+    pause:         "pause",
+    resume:        "resume",
+    shuffle:       "shuffle",
+    poll:          "poll",
+    snipe:         "snipe",
+    feedback:      "feedback",
+  };
+
+  const targetCommand = prefixMap[commandName];
+  if (!targetCommand) {
+    return message.reply({ embeds: [embed("❓ Unknown Command", `Unknown command \`${PREFIX}${commandName}\`. Type \`${PREFIX}help\` for a list.`, COLORS.red)] });
+  }
+
+  const command = client.commands.get(targetCommand);
+  if (!command) return;
+
+  // Build a fake interaction-like object for simple commands
+  const fakeInteraction = {
+    user: message.author,
+    guild: message.guild,
+    channel: message.channel,
+    member: message.member,
+    options: {
+      getString: () => args.join(" ") || null,
+      getUser: () => message.mentions.users.first() || null,
+      getRole: () => message.mentions.roles.first() || null,
+      getChannel: () => message.mentions.channels.first() || null,
+      getInteger: () => parseInt(args[0]) || null,
+      getBoolean: () => null,
+    },
+    reply: async (data) => {
+      try { await message.reply(data); } catch { await message.channel.send(data); }
+    },
+    editReply: async (data) => {
+      try { await message.channel.send(data); } catch {}
+    },
+    followUp: async (data) => {
+      try { await message.channel.send(data); } catch {}
+    },
+    replied: false,
+    deferred: false,
+  };
+
+  try {
+    await command.execute(fakeInteraction);
+  } catch (error) {
+    console.error(`Prefix command error [${PREFIX}${commandName}]:`, error);
+    message.reply({ embeds: [embed("❌ Error", "Something went wrong with this command.", COLORS.red)] });
   }
 });
 

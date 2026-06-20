@@ -28,6 +28,7 @@ const client = new Client({
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildExpressions,
   ],
 });
 
@@ -55,6 +56,16 @@ function errorEmbed(desc) {
 
 function successEmbed(desc) {
   return embed('✅ Success', desc, COLORS.success);
+}
+
+async function getLogChannel(guild) {
+  const logChannelId = await db.get(`logs_${guild.id}`);
+  if (!logChannelId) return null;
+  return guild.channels.cache.get(logChannelId) || null;
+}
+
+function logEmbed(title, color = COLORS.mod) {
+  return new EmbedBuilder().setTitle(title).setColor(color).setTimestamp();
 }
 
 function parseDuration(str) {
@@ -908,16 +919,26 @@ const commands = {
     }
   },
 
-  setlogs: {
+  setlogchannel: {
     category: 'Config',
-    description: 'Configure the logs channel',
-    usage: '!setlogs #channel',
+    description: 'Configure the server logs channel (Carl-bot style logging)',
+    usage: '!setlogchannel #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel. Usage: !setlogchannel #channel')] });
       await db.set(`logs_${message.guild.id}`, channel.id);
-      message.reply({ embeds: [successEmbed(`Logs channel: <#${channel.id}>`)] });
+      message.reply({ embeds: [successEmbed(`Log channel set to <#${channel.id}>. I'll now log: deleted/edited/purged messages, joins, leaves, bans, unbans, timeouts, role changes, nickname/avatar/username updates, channel changes, role create/update/delete, voice activity, server updates, and emoji changes.`)] });
+    }
+  },
+
+  removelogchannel: {
+    category: 'Config',
+    description: 'Disable the server logs channel',
+    async execute(message) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      await db.delete(`logs_${message.guild.id}`);
+      message.reply({ embeds: [successEmbed('Log channel disabled.')] });
     }
   },
 
@@ -969,7 +990,7 @@ const commands = {
           { name: '🔤 Prefix', value: prefix || PREFIX, inline: true },
           { name: '👋 Welcome', value: welcome ? `<#${welcome.channelId}>` : 'Not configured', inline: true },
           { name: '🚪 Leave', value: leave ? `<#${leave.channelId}>` : 'Not configured', inline: true },
-          { name: '📋 Logs', value: logs ? `<#${logs}>` : 'Not configured', inline: true },
+          { name: '📋 Log Channel', value: logs ? `<#${logs}>` : 'Not configured (use !setlogchannel)', inline: true },
           { name: '🎭 Auto-role', value: autorole ? `<@&${autorole}>` : 'Not configured', inline: true },
           { name: '⭐ Level-up', value: levelup ? `<#${levelup}>` : 'Not configured', inline: true },
         )
@@ -1228,17 +1249,63 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// ─── Event: Members ───────────────────────────────────────────────────────────
+// ─── Event: Logs (Carl-bot style) ─────────────────────────────────────────────
+
+// 🗑 Deleted messages
+client.on('messageDelete', async (message) => {
+  if (!message.guild || message.author?.bot) return;
+  const channel = await getLogChannel(message.guild);
+  if (!channel) return;
+  const e = logEmbed('🗑️ Message Deleted')
+    .addFields(
+      { name: 'Author', value: message.author ? `${message.author.tag} (${message.author.id})` : 'Unknown', inline: false },
+      { name: 'Channel', value: `<#${message.channelId}>`, inline: false },
+      { name: 'Content', value: message.content?.slice(0, 1000) || '*No text content (embed/attachment)*', inline: false },
+    );
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 🗑 Purged / bulk deleted messages
+client.on('messageDeleteBulk', async (messages) => {
+  const first = messages.first();
+  if (!first?.guild) return;
+  const channel = await getLogChannel(first.guild);
+  if (!channel) return;
+  const e = logEmbed('🧹 Messages Purged')
+    .addFields(
+      { name: 'Channel', value: `<#${first.channelId}>`, inline: true },
+      { name: 'Amount', value: `${messages.size}`, inline: true },
+    );
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// ✏️ Edited messages
+client.on('messageUpdate', async (oldMessage, newMessage) => {
+  if (!newMessage.guild || newMessage.author?.bot) return;
+  if (oldMessage.content === newMessage.content) return;
+  const channel = await getLogChannel(newMessage.guild);
+  if (!channel) return;
+  const e = logEmbed('✏️ Message Edited', COLORS.warning)
+    .addFields(
+      { name: 'Author', value: `${newMessage.author.tag} (${newMessage.author.id})`, inline: false },
+      { name: 'Channel', value: `<#${newMessage.channelId}>`, inline: false },
+      { name: 'Before', value: oldMessage.content?.slice(0, 500) || '*Empty*', inline: false },
+      { name: 'After', value: newMessage.content?.slice(0, 500) || '*Empty*', inline: false },
+    );
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 📥 Member joins
 client.on('guildMemberAdd', async (member) => {
   // Welcome message
   const welcome = await db.get(`welcome_${member.guild.id}`);
   if (welcome) {
-    const channel = member.guild.channels.cache.get(welcome.channelId);
+    const welcomeChannel = member.guild.channels.cache.get(welcome.channelId);
     const msg = welcome.message
       .replace('{user}', `<@${member.id}>`)
       .replace('{server}', member.guild.name)
       .replace('{count}', member.guild.memberCount);
-    channel?.send({ embeds: [embed('👋 Welcome!', msg, COLORS.success)] });
+    welcomeChannel?.send({ embeds: [embed('👋 Welcome!', msg, COLORS.success)] });
   }
   // Auto-role
   const autorole = await db.get(`autorole_${member.guild.id}`);
@@ -1246,17 +1313,249 @@ client.on('guildMemberAdd', async (member) => {
     const role = member.guild.roles.cache.get(autorole);
     if (role) member.roles.add(role).catch(() => {});
   }
+  // Log
+  const channel = await getLogChannel(member.guild);
+  if (channel) {
+    const e = logEmbed('📥 Member Joined', COLORS.success)
+      .setThumbnail(member.user.displayAvatarURL())
+      .addFields(
+        { name: 'User', value: `${member.user.tag} (${member.id})`, inline: false },
+        { name: 'Account created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: false },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
 });
 
+// 🚪 Member leaves
 client.on('guildMemberRemove', async (member) => {
   const leave = await db.get(`leave_${member.guild.id}`);
   if (leave) {
-    const channel = member.guild.channels.cache.get(leave.channelId);
+    const leaveChannel = member.guild.channels.cache.get(leave.channelId);
     const msg = leave.message
       .replace('{user}', member.user.tag)
       .replace('{server}', member.guild.name);
-    channel?.send({ embeds: [embed('🚪 Leave', msg, COLORS.warning)] });
+    leaveChannel?.send({ embeds: [embed('🚪 Leave', msg, COLORS.warning)] });
   }
+  const channel = await getLogChannel(member.guild);
+  if (channel) {
+    const e = logEmbed('📤 Member Left', COLORS.warning)
+      .setThumbnail(member.user.displayAvatarURL())
+      .addFields(
+        { name: 'User', value: `${member.user.tag} (${member.id})`, inline: false },
+        { name: 'Roles', value: member.roles?.cache?.filter(r => r.id !== member.guild.id).map(r => r.name).join(', ') || 'None', inline: false },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+});
+
+// 🔨 Bans
+client.on('guildBanAdd', async (ban) => {
+  const channel = await getLogChannel(ban.guild);
+  if (!channel) return;
+  const e = logEmbed('🔨 Member Banned', COLORS.mod)
+    .addFields(
+      { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false },
+      { name: 'Reason', value: ban.reason || 'None', inline: false },
+    );
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// ✅ Unbans
+client.on('guildBanRemove', async (ban) => {
+  const channel = await getLogChannel(ban.guild);
+  if (!channel) return;
+  const e = logEmbed('✅ Member Unbanned', COLORS.success)
+    .addFields({ name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false });
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 🎭 Role changes, nicknames, timeouts
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  const channel = await getLogChannel(newMember.guild);
+  if (!channel) return;
+
+  // Nickname change
+  if (oldMember.nickname !== newMember.nickname) {
+    const e = logEmbed('📝 Nickname Updated', COLORS.warning)
+      .addFields(
+        { name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false },
+        { name: 'Before', value: oldMember.nickname || '*None*', inline: true },
+        { name: 'After', value: newMember.nickname || '*None*', inline: true },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+
+  // Role changes
+  const oldRoles = oldMember.roles.cache;
+  const newRoles = newMember.roles.cache;
+  const addedRoles = newRoles.filter(r => !oldRoles.has(r.id));
+  const removedRoles = oldRoles.filter(r => !newRoles.has(r.id));
+  if (addedRoles.size > 0 || removedRoles.size > 0) {
+    const e = logEmbed('🎭 Member Roles Updated', COLORS.info)
+      .addFields({ name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false });
+    if (addedRoles.size > 0) e.addFields({ name: '➕ Added', value: addedRoles.map(r => r.name).join(', '), inline: false });
+    if (removedRoles.size > 0) e.addFields({ name: '➖ Removed', value: removedRoles.map(r => r.name).join(', '), inline: false });
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+
+  // Timeout changes
+  const oldTimeout = oldMember.communicationDisabledUntilTimestamp;
+  const newTimeout = newMember.communicationDisabledUntilTimestamp;
+  if (oldTimeout !== newTimeout) {
+    if (newTimeout && newTimeout > Date.now()) {
+      const e = logEmbed('🔇 Member Timed Out', COLORS.mod)
+        .addFields(
+          { name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false },
+          { name: 'Until', value: `<t:${Math.floor(newTimeout / 1000)}:F>`, inline: false },
+        );
+      channel.send({ embeds: [e] }).catch(() => {});
+    } else if (oldTimeout) {
+      const e = logEmbed('🔊 Timeout Removed', COLORS.success)
+        .addFields({ name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false });
+      channel.send({ embeds: [e] }).catch(() => {});
+    }
+  }
+});
+
+// 👤 Username / avatar changes (global, so check shared guilds)
+client.on('userUpdate', async (oldUser, newUser) => {
+  for (const guild of client.guilds.cache.values()) {
+    const member = guild.members.cache.get(newUser.id);
+    if (!member) continue;
+    const channel = await getLogChannel(guild);
+    if (!channel) continue;
+
+    if (oldUser.username !== newUser.username) {
+      const e = logEmbed('👤 Username Updated', COLORS.warning)
+        .addFields(
+          { name: 'User', value: `${newUser.id}`, inline: false },
+          { name: 'Before', value: oldUser.username, inline: true },
+          { name: 'After', value: newUser.username, inline: true },
+        );
+      channel.send({ embeds: [e] }).catch(() => {});
+    }
+
+    if (oldUser.displayAvatarURL() !== newUser.displayAvatarURL()) {
+      const e = logEmbed('🖼️ Avatar Updated', COLORS.warning)
+        .setThumbnail(newUser.displayAvatarURL())
+        .addFields({ name: 'User', value: `${newUser.tag} (${newUser.id})`, inline: false });
+      channel.send({ embeds: [e] }).catch(() => {});
+    }
+  }
+});
+
+// 🔊 Voice activity
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  const guild = newState.guild || oldState.guild;
+  const channel = await getLogChannel(guild);
+  if (!channel) return;
+  const member = newState.member || oldState.member;
+
+  if (!oldState.channelId && newState.channelId) {
+    const e = logEmbed('🔊 Voice Join', COLORS.success)
+      .addFields(
+        { name: 'User', value: `${member.user.tag}`, inline: true },
+        { name: 'Channel', value: `<#${newState.channelId}>`, inline: true },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  } else if (oldState.channelId && !newState.channelId) {
+    const e = logEmbed('🔇 Voice Leave', COLORS.warning)
+      .addFields(
+        { name: 'User', value: `${member.user.tag}`, inline: true },
+        { name: 'Channel', value: `<#${oldState.channelId}>`, inline: true },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  } else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
+    const e = logEmbed('🔀 Voice Move', COLORS.info)
+      .addFields(
+        { name: 'User', value: `${member.user.tag}`, inline: true },
+        { name: 'From', value: `<#${oldState.channelId}>`, inline: true },
+        { name: 'To', value: `<#${newState.channelId}>`, inline: true },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+});
+
+// 📁 Channel create/update/delete
+client.on('channelCreate', async (ch) => {
+  if (!ch.guild) return;
+  const channel = await getLogChannel(ch.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('📁 Channel Created', COLORS.success).addFields({ name: 'Channel', value: `${ch.name} (${ch.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('channelDelete', async (ch) => {
+  if (!ch.guild) return;
+  const channel = await getLogChannel(ch.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🗑️ Channel Deleted', COLORS.mod).addFields({ name: 'Channel', value: `${ch.name} (${ch.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('channelUpdate', async (oldCh, newCh) => {
+  if (!newCh.guild) return;
+  const channel = await getLogChannel(newCh.guild);
+  if (!channel) return;
+  if (oldCh.name === newCh.name && oldCh.topic === newCh.topic) return;
+  const e = logEmbed('🔧 Channel Updated', COLORS.warning)
+    .addFields({ name: 'Channel', value: `<#${newCh.id}>`, inline: false });
+  if (oldCh.name !== newCh.name) e.addFields({ name: 'Name', value: `${oldCh.name} → ${newCh.name}`, inline: false });
+  if (oldCh.topic !== newCh.topic) e.addFields({ name: 'Topic', value: `${oldCh.topic || '*None*'} → ${newCh.topic || '*None*'}`, inline: false });
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 🎭 Role create/update/delete
+client.on('roleCreate', async (role) => {
+  const channel = await getLogChannel(role.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🎭 Role Created', COLORS.success).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('roleDelete', async (role) => {
+  const channel = await getLogChannel(role.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🗑️ Role Deleted', COLORS.mod).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('roleUpdate', async (oldRole, newRole) => {
+  const channel = await getLogChannel(newRole.guild);
+  if (!channel) return;
+  if (oldRole.name === newRole.name && oldRole.color === newRole.color && oldRole.permissions.bitfield === newRole.permissions.bitfield) return;
+  const e = logEmbed('🔧 Role Updated', COLORS.warning)
+    .addFields({ name: 'Role', value: `<@&${newRole.id}>`, inline: false });
+  if (oldRole.name !== newRole.name) e.addFields({ name: 'Name', value: `${oldRole.name} → ${newRole.name}`, inline: false });
+  if (oldRole.hexColor !== newRole.hexColor) e.addFields({ name: 'Color', value: `${oldRole.hexColor} → ${newRole.hexColor}`, inline: false });
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 🏠 Server updates
+client.on('guildUpdate', async (oldGuild, newGuild) => {
+  const channel = await getLogChannel(newGuild);
+  if (!channel) return;
+  const e = logEmbed('🏠 Server Updated', COLORS.warning);
+  let changed = false;
+  if (oldGuild.name !== newGuild.name) { e.addFields({ name: 'Name', value: `${oldGuild.name} → ${newGuild.name}`, inline: false }); changed = true; }
+  if (oldGuild.iconURL() !== newGuild.iconURL()) { e.addFields({ name: 'Icon', value: 'Server icon changed', inline: false }); e.setThumbnail(newGuild.iconURL()); changed = true; }
+  if (changed) channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 😀 Emoji create/update/delete
+client.on('emojiCreate', async (emoji) => {
+  const channel = await getLogChannel(emoji.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('😀 Emoji Added', COLORS.success).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false }).setThumbnail(emoji.imageURL())] }).catch(() => {});
+});
+
+client.on('emojiDelete', async (emoji) => {
+  const channel = await getLogChannel(emoji.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🗑️ Emoji Removed', COLORS.mod).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('emojiUpdate', async (oldEmoji, newEmoji) => {
+  if (oldEmoji.name === newEmoji.name) return;
+  const channel = await getLogChannel(newEmoji.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🔧 Emoji Renamed', COLORS.warning).addFields({ name: 'Before', value: oldEmoji.name, inline: true }, { name: 'After', value: newEmoji.name, inline: true })] }).catch(() => {});
 });
 
 // ─── Event: Reactions (reaction roles) ───────────────────────────────────────
@@ -1284,22 +1583,6 @@ client.on('messageReactionRemove', async (reaction, user) => {
     const role = guild.roles.cache.get(data.roleId);
     if (member && role) member.roles.remove(role).catch(() => {});
   }
-});
-
-// ─── Event: Logs ─────────────────────────────────────────────────────────────
-client.on('messageDelete', async (message) => {
-  const logChannelId = await db.get(`logs_${message.guild?.id}`);
-  if (!logChannelId || !message.guild) return;
-  const channel = message.guild.channels.cache.get(logChannelId);
-  if (!channel) return;
-  channel.send({ embeds: [embed('🗑 Message deleted', `**Author:** ${message.author?.tag || 'Unknown'}\n**Channel:** <#${message.channelId}>\n**Content:** ${message.content?.slice(0, 500) || 'No content'}`, COLORS.mod)] });
-});
-
-client.on('guildBanAdd', async (ban) => {
-  const logChannelId = await db.get(`logs_${ban.guild.id}`);
-  if (!logChannelId) return;
-  const channel = ban.guild.channels.cache.get(logChannelId);
-  channel?.send({ embeds: [embed('🔨 Member banned', `**User:** ${ban.user.tag}\n**Reason:** ${ban.reason || 'None'}`, COLORS.mod)] });
 });
 
 // ─── Ready ────────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 /**
  * ╔══════════════════════════════════════════════════════════════╗
- * ║          BOT DISCORD MULTIFONCTION — PREFIX: !               ║
- * ║   100+ commandes : Modération, Niveaux, Fun, Utilitaires     ║
- * ║   Inspiré de : Saphire • Dyno • Arcane • Circle             ║
+ * ║          MULTIPURPOSE DISCORD BOT — PREFIX: !                ║
+ * ║   100+ commands: Moderation, Levels, Fun, Utilities           ║
+ * ║   Inspired by: Saphire • Dyno • Arcane • Circle              ║
  * ╚══════════════════════════════════════════════════════════════╝
  */
 
@@ -14,8 +14,8 @@ const ms = require('ms');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const PREFIX = '!';
-const TOKEN = process.env.TOKEN;       // Variable Railway ou fichier .env
-const OWNER_ID = process.env.OWNER_ID; // Variable Railway ou fichier .env
+const TOKEN = process.env.TOKEN;       // Railway variable or .env file
+const OWNER_ID = process.env.OWNER_ID; // Railway variable or .env file
 
 const db = new QuickDB();
 const client = new Client({
@@ -34,7 +34,7 @@ const client = new Client({
 client.commands = new Collection();
 const cooldowns = new Collection();
 
-// ─── Couleurs & Helpers ───────────────────────────────────────────────────────
+// ─── Colors & Helpers ──────────────────────────────────────────────────────────
 const COLORS = {
   primary:  0x5865F2,
   success:  0x57F287,
@@ -50,11 +50,11 @@ function embed(title, desc, color = COLORS.primary) {
 }
 
 function errorEmbed(desc) {
-  return embed('❌ Erreur', desc, COLORS.error);
+  return embed('❌ Error', desc, COLORS.error);
 }
 
 function successEmbed(desc) {
-  return embed('✅ Succès', desc, COLORS.success);
+  return embed('✅ Success', desc, COLORS.success);
 }
 
 function parseDuration(str) {
@@ -66,7 +66,7 @@ function formatDuration(ms_val) {
   const m = Math.floor(s / 60);
   const h = Math.floor(m / 60);
   const d = Math.floor(h / 24);
-  if (d > 0) return `${d}j ${h % 24}h`;
+  if (d > 0) return `${d}d ${h % 24}h`;
   if (h > 0) return `${h}h ${m % 60}m`;
   if (m > 0) return `${m}m ${s % 60}s`;
   return `${s}s`;
@@ -92,32 +92,32 @@ async function getXP(userId, guildId) {
   return (await db.get(`xp_${guildId}_${userId}`)) || { xp: 0, level: 0 };
 }
 
-// ─── Commandes ────────────────────────────────────────────────────────────────
+// ─── Commands ────────────────────────────────────────────────────────────────
 const commands = {
 
-  // ══════════════ ℹ️ AIDE & INFO ══════════════
+  // ══════════════ ℹ️ HELP & INFO ══════════════
   help: {
     category: 'Info',
-    description: 'Affiche toutes les commandes',
-    usage: '!help [commande]',
+    description: 'Shows all commands',
+    usage: '!help [command]',
     async execute(message, args) {
       if (args[0]) {
         const cmd = commands[args[0].toLowerCase()];
-        if (!cmd) return message.reply({ embeds: [errorEmbed(`Commande \`${args[0]}\` introuvable.`)] });
+        if (!cmd) return message.reply({ embeds: [errorEmbed(`Command \`${args[0]}\` not found.`)] });
         return message.reply({
-          embeds: [embed(`📖 ${args[0]}`, `**Description:** ${cmd.description}\n**Usage:** \`${cmd.usage || `!${args[0]}`}\`\n**Catégorie:** ${cmd.category || 'Général'}`, COLORS.info)]
+          embeds: [embed(`📖 ${args[0]}`, `**Description:** ${cmd.description}\n**Usage:** \`${cmd.usage || `!${args[0]}`}\`\n**Category:** ${cmd.category || 'General'}`, COLORS.info)]
         });
       }
       const cats = {};
       for (const [name, cmd] of Object.entries(commands)) {
-        const cat = cmd.category || 'Autre';
+        const cat = cmd.category || 'Other';
         if (!cats[cat]) cats[cat] = [];
         cats[cat].push(`\`!${name}\``);
       }
       const e = new EmbedBuilder()
-        .setTitle('📚 Aide — Toutes les commandes')
+        .setTitle('📚 Help — All commands')
         .setColor(COLORS.primary)
-        .setFooter({ text: `Prefix: ${PREFIX} • ${Object.keys(commands).length} commandes` })
+        .setFooter({ text: `Prefix: ${PREFIX} • ${Object.keys(commands).length} commands` })
         .setTimestamp();
       for (const [cat, cmds] of Object.entries(cats)) {
         e.addFields({ name: cat, value: cmds.join(', '), inline: false });
@@ -128,16 +128,16 @@ const commands = {
 
   botinfo: {
     category: 'Info',
-    description: 'Informations sur le bot',
+    description: 'Information about the bot',
     async execute(message) {
       const e = new EmbedBuilder()
-        .setTitle('🤖 Informations du Bot')
+        .setTitle('🤖 Bot Information')
         .setColor(COLORS.primary)
         .addFields(
           { name: '📡 Ping', value: `${client.ws.ping}ms`, inline: true },
           { name: '⏱ Uptime', value: formatDuration(client.uptime), inline: true },
-          { name: '🖥 Serveurs', value: `${client.guilds.cache.size}`, inline: true },
-          { name: '👥 Membres', value: `${client.users.cache.size}`, inline: true },
+          { name: '🖥 Servers', value: `${client.guilds.cache.size}`, inline: true },
+          { name: '👥 Members', value: `${client.users.cache.size}`, inline: true },
           { name: '📦 discord.js', value: require('discord.js').version, inline: true },
           { name: '🟢 Node.js', value: process.version, inline: true },
         )
@@ -149,7 +149,7 @@ const commands = {
 
   serverinfo: {
     category: 'Info',
-    description: 'Infos sur le serveur',
+    description: 'Information about the server',
     async execute(message) {
       const g = message.guild;
       const e = new EmbedBuilder()
@@ -157,13 +157,13 @@ const commands = {
         .setColor(COLORS.primary)
         .setThumbnail(g.iconURL())
         .addFields(
-          { name: '👑 Propriétaire', value: `<@${g.ownerId}>`, inline: true },
-          { name: '👥 Membres', value: `${g.memberCount}`, inline: true },
-          { name: '📅 Créé le', value: `<t:${Math.floor(g.createdTimestamp / 1000)}:D>`, inline: true },
-          { name: '💬 Salons', value: `${g.channels.cache.size}`, inline: true },
-          { name: '🎭 Rôles', value: `${g.roles.cache.size}`, inline: true },
+          { name: '👑 Owner', value: `<@${g.ownerId}>`, inline: true },
+          { name: '👥 Members', value: `${g.memberCount}`, inline: true },
+          { name: '📅 Created on', value: `<t:${Math.floor(g.createdTimestamp / 1000)}:D>`, inline: true },
+          { name: '💬 Channels', value: `${g.channels.cache.size}`, inline: true },
+          { name: '🎭 Roles', value: `${g.roles.cache.size}`, inline: true },
           { name: '😀 Emojis', value: `${g.emojis.cache.size}`, inline: true },
-          { name: '🔒 Vérification', value: g.verificationLevel.toString(), inline: true },
+          { name: '🔒 Verification', value: g.verificationLevel.toString(), inline: true },
           { name: '💎 Boosts', value: `${g.premiumSubscriptionCount || 0} (Tier ${g.premiumTier})`, inline: true },
         )
         .setTimestamp();
@@ -173,8 +173,8 @@ const commands = {
 
   userinfo: {
     category: 'Info',
-    description: 'Infos sur un utilisateur',
-    usage: '!userinfo [@membre]',
+    description: 'Information about a user',
+    usage: '!userinfo [@member]',
     async execute(message, args) {
       const member = message.mentions.members.first() || message.member;
       const u = member.user;
@@ -184,11 +184,11 @@ const commands = {
         .setThumbnail(u.displayAvatarURL({ dynamic: true }))
         .addFields(
           { name: '🆔 ID', value: u.id, inline: true },
-          { name: '📅 Compte créé', value: `<t:${Math.floor(u.createdTimestamp / 1000)}:D>`, inline: true },
-          { name: '📥 A rejoint le', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`, inline: true },
-          { name: '🎭 Rôles', value: member.roles.cache.filter(r => r.id !== message.guild.id).map(r => `<@&${r.id}>`).join(', ') || 'Aucun', inline: false },
-          { name: '🤖 Bot', value: u.bot ? 'Oui' : 'Non', inline: true },
-          { name: '💎 Pseudo', value: member.displayName, inline: true },
+          { name: '📅 Account created', value: `<t:${Math.floor(u.createdTimestamp / 1000)}:D>`, inline: true },
+          { name: '📥 Joined on', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`, inline: true },
+          { name: '🎭 Roles', value: member.roles.cache.filter(r => r.id !== message.guild.id).map(r => `<@&${r.id}>`).join(', ') || 'None', inline: false },
+          { name: '🤖 Bot', value: u.bot ? 'Yes' : 'No', inline: true },
+          { name: '💎 Nickname', value: member.displayName, inline: true },
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
@@ -197,12 +197,12 @@ const commands = {
 
   avatar: {
     category: 'Info',
-    description: 'Affiche l\'avatar d\'un membre',
-    usage: '!avatar [@membre]',
+    description: 'Shows a member\'s avatar',
+    usage: '!avatar [@member]',
     async execute(message, args) {
       const user = message.mentions.users.first() || message.author;
       const e = new EmbedBuilder()
-        .setTitle(`🖼 Avatar de ${user.username}`)
+        .setTitle(`🖼 ${user.username}'s avatar`)
         .setImage(user.displayAvatarURL({ dynamic: true, size: 512 }))
         .setColor(COLORS.primary);
       message.reply({ embeds: [e] });
@@ -211,261 +211,261 @@ const commands = {
 
   ping: {
     category: 'Info',
-    description: 'Latence du bot',
+    description: 'Bot latency',
     async execute(message) {
-      const m = await message.reply('🏓 Calcul...');
-      m.edit({ content: `🏓 Pong! \`${client.ws.ping}ms\` WebSocket — \`${m.createdTimestamp - message.createdTimestamp}ms\` API` });
+      const m = await message.reply({ embeds: [embed('🏓 Calculating...', 'Please wait', COLORS.primary)] });
+      m.edit({ embeds: [embed('🏓 Pong!', `\`${client.ws.ping}ms\` WebSocket — \`${m.createdTimestamp - message.createdTimestamp}ms\` API`, COLORS.primary)] });
     }
   },
 
   invite: {
     category: 'Info',
-    description: 'Lien d\'invitation du bot',
+    description: 'Bot invite link',
     async execute(message) {
       const link = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot`;
-      message.reply({ embeds: [embed('📩 Inviter le bot', `[Clique ici pour m'inviter](${link})`, COLORS.info)] });
+      message.reply({ embeds: [embed('📩 Invite the bot', `[Click here to invite me](${link})`, COLORS.info)] });
     }
   },
 
-  // ══════════════ 🔨 MODÉRATION ══════════════
+  // ══════════════ 🔨 MODERATION ══════════════
   ban: {
-    category: 'Modération',
-    description: 'Bannir un membre',
-    usage: '!ban @membre [raison]',
+    category: 'Moderation',
+    description: 'Ban a member',
+    usage: '!ban @member [reason]',
     permissions: ['BanMembers'],
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
-      const raison = args.slice(1).join(' ') || 'Aucune raison';
-      await member.ban({ reason: raison, deleteMessageDays: 1 });
-      message.reply({ embeds: [embed('🔨 Banni', `**${member.user.tag}** a été banni.\n📝 Raison: ${raison}`, COLORS.mod)] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
+      const reason = args.slice(1).join(' ') || 'No reason';
+      await member.ban({ reason, deleteMessageDays: 1 });
+      message.reply({ embeds: [embed('🔨 Banned', `**${member.user.tag}** has been banned.\n📝 Reason: ${reason}`, COLORS.mod)] });
     }
   },
 
   kick: {
-    category: 'Modération',
-    description: 'Expulser un membre',
-    usage: '!kick @membre [raison]',
+    category: 'Moderation',
+    description: 'Kick a member',
+    usage: '!kick @member [reason]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
-      const raison = args.slice(1).join(' ') || 'Aucune raison';
-      await member.kick(raison);
-      message.reply({ embeds: [embed('👢 Expulsé', `**${member.user.tag}** a été expulsé.\n📝 Raison: ${raison}`, COLORS.mod)] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
+      const reason = args.slice(1).join(' ') || 'No reason';
+      await member.kick(reason);
+      message.reply({ embeds: [embed('👢 Kicked', `**${member.user.tag}** has been kicked.\n📝 Reason: ${reason}`, COLORS.mod)] });
     }
   },
 
   mute: {
-    category: 'Modération',
-    description: 'Rendre muet un membre (timeout)',
-    usage: '!mute @membre [durée] [raison]',
+    category: 'Moderation',
+    description: 'Mute a member (timeout)',
+    usage: '!mute @member [duration] [reason]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
       const duration = parseDuration(args[1]) || ms('10m');
-      const raison = args.slice(2).join(' ') || 'Aucune raison';
-      await member.timeout(duration, raison);
-      message.reply({ embeds: [embed('🔇 Muté', `**${member.user.tag}** a été muté pendant **${formatDuration(duration)}**.\n📝 Raison: ${raison}`, COLORS.mod)] });
+      const reason = args.slice(2).join(' ') || 'No reason';
+      await member.timeout(duration, reason);
+      message.reply({ embeds: [embed('🔇 Muted', `**${member.user.tag}** has been muted for **${formatDuration(duration)}**.\n📝 Reason: ${reason}`, COLORS.mod)] });
     }
   },
 
   unmute: {
-    category: 'Modération',
-    description: 'Retirer le mute d\'un membre',
-    usage: '!unmute @membre',
+    category: 'Moderation',
+    description: 'Remove a member\'s mute',
+    usage: '!unmute @member',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
       await member.timeout(null);
-      message.reply({ embeds: [successEmbed(`**${member.user.tag}** n'est plus muté.`)] });
+      message.reply({ embeds: [successEmbed(`**${member.user.tag}** is no longer muted.`)] });
     }
   },
 
   warn: {
-    category: 'Modération',
-    description: 'Avertir un membre',
-    usage: '!warn @membre [raison]',
+    category: 'Moderation',
+    description: 'Warn a member',
+    usage: '!warn @member [reason]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
-      const raison = args.slice(1).join(' ') || 'Aucune raison';
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
+      const reason = args.slice(1).join(' ') || 'No reason';
       const key = `warns_${message.guild.id}_${member.id}`;
       const warns = (await db.get(key)) || [];
-      warns.push({ raison, date: Date.now(), par: message.author.id });
+      warns.push({ reason, date: Date.now(), by: message.author.id });
       await db.set(key, warns);
-      message.reply({ embeds: [embed('⚠️ Avertissement', `**${member.user.tag}** a reçu un avertissement.\n📝 Raison: ${raison}\n📊 Total: **${warns.length}** warn(s)`, COLORS.warning)] });
+      message.reply({ embeds: [embed('⚠️ Warning', `**${member.user.tag}** has received a warning.\n📝 Reason: ${reason}\n📊 Total: **${warns.length}** warn(s)`, COLORS.warning)] });
     }
   },
 
   warns: {
-    category: 'Modération',
-    description: 'Voir les avertissements d\'un membre',
-    usage: '!warns @membre',
+    category: 'Moderation',
+    description: 'View a member\'s warnings',
+    usage: '!warns @member',
     async execute(message, args) {
       const member = message.mentions.members.first() || message.member;
       const warns = (await db.get(`warns_${message.guild.id}_${member.id}`)) || [];
-      if (!warns.length) return message.reply({ embeds: [successEmbed(`**${member.user.tag}** n'a aucun avertissement.`)] });
-      const list = warns.map((w, i) => `**${i+1}.** ${w.raison} — <t:${Math.floor(w.date/1000)}:R>`).join('\n');
-      message.reply({ embeds: [embed(`⚠️ Warns de ${member.user.tag}`, list, COLORS.warning)] });
+      if (!warns.length) return message.reply({ embeds: [successEmbed(`**${member.user.tag}** has no warnings.`)] });
+      const list = warns.map((w, i) => `**${i+1}.** ${w.reason} — <t:${Math.floor(w.date/1000)}:R>`).join('\n');
+      message.reply({ embeds: [embed(`⚠️ Warns for ${member.user.tag}`, list, COLORS.warning)] });
     }
   },
 
   clearwarns: {
-    category: 'Modération',
-    description: 'Effacer les warns d\'un membre',
-    usage: '!clearwarns @membre',
+    category: 'Moderation',
+    description: 'Clear a member\'s warns',
+    usage: '!clearwarns @member',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
       await db.delete(`warns_${message.guild.id}_${member.id}`);
-      message.reply({ embeds: [successEmbed(`Les warns de **${member.user.tag}** ont été effacés.`)] });
+      message.reply({ embeds: [successEmbed(`**${member.user.tag}**'s warns have been cleared.`)] });
     }
   },
 
   purge: {
-    category: 'Modération',
-    description: 'Supprimer des messages en masse',
-    usage: '!purge [nombre] [@membre]',
+    category: 'Moderation',
+    description: 'Bulk delete messages',
+    usage: '!purge [amount] [@member]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const amount = parseInt(args[0]);
-      if (isNaN(amount) || amount < 1 || amount > 100) return message.reply({ embeds: [errorEmbed('Nombre entre 1 et 100.')] });
+      if (isNaN(amount) || amount < 1 || amount > 100) return message.reply({ embeds: [errorEmbed('Amount must be between 1 and 100.')] });
       const target = message.mentions.users.first();
       let messages = await message.channel.messages.fetch({ limit: 100 });
       if (target) messages = messages.filter(m => m.author.id === target.id);
       const toDelete = [...messages.values()].slice(0, amount);
       await message.channel.bulkDelete(toDelete, true);
-      const m = await message.channel.send({ embeds: [successEmbed(`**${toDelete.length}** messages supprimés.`)] });
+      const m = await message.channel.send({ embeds: [successEmbed(`**${toDelete.length}** messages deleted.`)] });
       setTimeout(() => m.delete().catch(() => {}), 3000);
     }
   },
 
   slowmode: {
-    category: 'Modération',
-    description: 'Activer le mode lent sur un salon',
-    usage: '!slowmode [secondes]',
+    category: 'Moderation',
+    description: 'Enable slowmode on a channel',
+    usage: '!slowmode [seconds]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const seconds = parseInt(args[0]) || 0;
       await message.channel.setRateLimitPerUser(seconds);
-      message.reply({ embeds: [successEmbed(seconds === 0 ? 'Mode lent désactivé.' : `Mode lent réglé à **${seconds}s**.`)] });
+      message.reply({ embeds: [successEmbed(seconds === 0 ? 'Slowmode disabled.' : `Slowmode set to **${seconds}s**.`)] });
     }
   },
 
   lock: {
-    category: 'Modération',
-    description: 'Verrouiller un salon',
+    category: 'Moderation',
+    description: 'Lock a channel',
     async execute(message) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
-      message.reply({ embeds: [embed('🔒 Salon verrouillé', 'Personne ne peut plus envoyer de messages.', COLORS.mod)] });
+      message.reply({ embeds: [embed('🔒 Channel locked', 'No one can send messages anymore.', COLORS.mod)] });
     }
   },
 
   unlock: {
-    category: 'Modération',
-    description: 'Déverrouiller un salon',
+    category: 'Moderation',
+    description: 'Unlock a channel',
     async execute(message) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null });
-      message.reply({ embeds: [embed('🔓 Salon déverrouillé', 'Les membres peuvent à nouveau envoyer des messages.', COLORS.success)] });
+      message.reply({ embeds: [embed('🔓 Channel unlocked', 'Members can send messages again.', COLORS.success)] });
     }
   },
 
   addrole: {
-    category: 'Modération',
-    description: 'Ajouter un rôle à un membre',
-    usage: '!addrole @membre @rôle',
+    category: 'Moderation',
+    description: 'Add a role to a member',
+    usage: '!addrole @member @role',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
       const role = message.mentions.roles.first();
-      if (!member || !role) return message.reply({ embeds: [errorEmbed('Mentionnez un membre et un rôle.')] });
+      if (!member || !role) return message.reply({ embeds: [errorEmbed('Mention a member and a role.')] });
       await member.roles.add(role);
-      message.reply({ embeds: [successEmbed(`Rôle **${role.name}** ajouté à **${member.user.tag}**.`)] });
+      message.reply({ embeds: [successEmbed(`Role **${role.name}** added to **${member.user.tag}**.`)] });
     }
   },
 
   removerole: {
-    category: 'Modération',
-    description: 'Retirer un rôle à un membre',
-    usage: '!removerole @membre @rôle',
+    category: 'Moderation',
+    description: 'Remove a role from a member',
+    usage: '!removerole @member @role',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
       const role = message.mentions.roles.first();
-      if (!member || !role) return message.reply({ embeds: [errorEmbed('Mentionnez un membre et un rôle.')] });
+      if (!member || !role) return message.reply({ embeds: [errorEmbed('Mention a member and a role.')] });
       await member.roles.remove(role);
-      message.reply({ embeds: [successEmbed(`Rôle **${role.name}** retiré de **${member.user.tag}**.`)] });
+      message.reply({ embeds: [successEmbed(`Role **${role.name}** removed from **${member.user.tag}**.`)] });
     }
   },
 
   nickname: {
-    category: 'Modération',
-    description: 'Changer le pseudo d\'un membre',
-    usage: '!nickname @membre [pseudo]',
+    category: 'Moderation',
+    description: 'Change a member\'s nickname',
+    usage: '!nickname @member [nickname]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member.')] });
       const nick = args.slice(1).join(' ') || null;
       await member.setNickname(nick);
-      message.reply({ embeds: [successEmbed(`Pseudo de **${member.user.tag}** changé en **${nick || 'réinitialisé'}**.`)] });
+      message.reply({ embeds: [successEmbed(`**${member.user.tag}**'s nickname changed to **${nick || 'reset'}**.`)] });
     }
   },
 
   unban: {
-    category: 'Modération',
-    description: 'Débannir un utilisateur',
+    category: 'Moderation',
+    description: 'Unban a user',
     usage: '!unban [ID]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
-      if (!args[0]) return message.reply({ embeds: [errorEmbed('Fournissez un ID utilisateur.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      if (!args[0]) return message.reply({ embeds: [errorEmbed('Provide a user ID.')] });
       try {
         await message.guild.members.unban(args[0]);
-        message.reply({ embeds: [successEmbed(`Utilisateur \`${args[0]}\` débanni.`)] });
+        message.reply({ embeds: [successEmbed(`User \`${args[0]}\` unbanned.`)] });
       } catch {
-        message.reply({ embeds: [errorEmbed('Impossible de débannir cet utilisateur.')] });
+        message.reply({ embeds: [errorEmbed('Unable to unban this user.')] });
       }
     }
   },
 
   banlist: {
-    category: 'Modération',
-    description: 'Liste des bannis',
+    category: 'Moderation',
+    description: 'List of banned users',
     async execute(message) {
-      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const bans = await message.guild.bans.fetch();
-      if (!bans.size) return message.reply({ embeds: [embed('📋 Bannis', 'Aucun banni.', COLORS.info)] });
-      const list = bans.map(b => `\`${b.user.tag}\` — ${b.reason || 'Aucune raison'}`).slice(0, 20).join('\n');
-      message.reply({ embeds: [embed(`📋 Bannis (${bans.size})`, list, COLORS.mod)] });
+      if (!bans.size) return message.reply({ embeds: [embed('📋 Banned users', 'No banned users.', COLORS.info)] });
+      const list = bans.map(b => `\`${b.user.tag}\` — ${b.reason || 'No reason'}`).slice(0, 20).join('\n');
+      message.reply({ embeds: [embed(`📋 Banned users (${bans.size})`, list, COLORS.mod)] });
     }
   },
 
-  // ══════════════ 📊 XP & NIVEAUX (Arcane) ══════════════
+  // ══════════════ 📊 XP & LEVELS (Arcane) ══════════════
   rank: {
-    category: 'Niveaux',
-    description: 'Voir votre niveau et XP',
-    usage: '!rank [@membre]',
+    category: 'Levels',
+    description: 'View your level and XP',
+    usage: '!rank [@member]',
     async execute(message, args) {
       const user = message.mentions.users.first() || message.author;
       const data = await getXP(user.id, message.guild.id);
       const xpNeeded = data.level * 100 + 100;
       const bar = '█'.repeat(Math.floor((data.xp / xpNeeded) * 10)) + '░'.repeat(10 - Math.floor((data.xp / xpNeeded) * 10));
       const e = new EmbedBuilder()
-        .setTitle(`⭐ Rang de ${user.username}`)
+        .setTitle(`⭐ ${user.username}'s rank`)
         .setColor(COLORS.xp)
         .setThumbnail(user.displayAvatarURL())
         .addFields(
-          { name: '🏆 Niveau', value: `${data.level}`, inline: true },
+          { name: '🏆 Level', value: `${data.level}`, inline: true },
           { name: '✨ XP', value: `${data.xp} / ${xpNeeded}`, inline: true },
-          { name: '📊 Barre', value: `[${bar}]`, inline: false },
+          { name: '📊 Progress', value: `[${bar}]`, inline: false },
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
@@ -473,8 +473,8 @@ const commands = {
   },
 
   leaderboard: {
-    category: 'Niveaux',
-    description: 'Classement XP du serveur',
+    category: 'Levels',
+    description: 'Server XP leaderboard',
     async execute(message) {
       const allData = await db.all();
       const guildData = allData
@@ -482,123 +482,123 @@ const commands = {
         .map(e => ({ userId: e.id.split('_')[2], ...e.value }))
         .sort((a, b) => b.level - a.level || b.xp - a.xp)
         .slice(0, 10);
-      if (!guildData.length) return message.reply({ embeds: [embed('🏆 Classement', 'Aucune donnée.', COLORS.xp)] });
+      if (!guildData.length) return message.reply({ embeds: [embed('🏆 Leaderboard', 'No data.', COLORS.xp)] });
       const medals = ['🥇', '🥈', '🥉'];
       const list = guildData.map((d, i) => {
         const user = client.users.cache.get(d.userId);
-        return `${medals[i] || `**${i+1}.**`} ${user ? user.tag : `<@${d.userId}>`} — Niv. **${d.level}** (${d.xp} XP)`;
+        return `${medals[i] || `**${i+1}.**`} ${user ? user.tag : `<@${d.userId}>`} — Lvl **${d.level}** (${d.xp} XP)`;
       }).join('\n');
-      message.reply({ embeds: [embed('🏆 Classement XP', list, COLORS.xp)] });
+      message.reply({ embeds: [embed('🏆 XP Leaderboard', list, COLORS.xp)] });
     }
   },
 
   setxp: {
-    category: 'Niveaux',
-    description: 'Définir l\'XP d\'un membre (Admin)',
-    usage: '!setxp @membre [xp]',
+    category: 'Levels',
+    description: 'Set a member\'s XP (Admin)',
+    usage: '!setxp @member [xp]',
     async execute(message, args) {
-      if (message.author.id !== OWNER_ID && !message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (message.author.id !== OWNER_ID && !message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
       const xp = parseInt(args[1]);
-      if (!member || isNaN(xp)) return message.reply({ embeds: [errorEmbed('Usage: !setxp @membre [xp]')] });
+      if (!member || isNaN(xp)) return message.reply({ embeds: [errorEmbed('Usage: !setxp @member [xp]')] });
       const key = `xp_${message.guild.id}_${member.id}`;
       const data = (await db.get(key)) || { xp: 0, level: 0 };
       data.xp = xp;
       await db.set(key, data);
-      message.reply({ embeds: [successEmbed(`XP de **${member.user.tag}** réglé à **${xp}**.`)] });
+      message.reply({ embeds: [successEmbed(`**${member.user.tag}**'s XP set to **${xp}**.`)] });
     }
   },
 
   givexp: {
-    category: 'Niveaux',
-    description: 'Donner de l\'XP à un membre (Admin)',
-    usage: '!givexp @membre [montant]',
+    category: 'Levels',
+    description: 'Give XP to a member (Admin)',
+    usage: '!givexp @member [amount]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
       const amount = parseInt(args[1]);
-      if (!member || isNaN(amount)) return message.reply({ embeds: [errorEmbed('Usage: !givexp @membre [montant]')] });
+      if (!member || isNaN(amount)) return message.reply({ embeds: [errorEmbed('Usage: !givexp @member [amount]')] });
       const result = await addXP(member, amount);
-      message.reply({ embeds: [successEmbed(`**${amount}** XP donnés à **${member.user.tag}**. Niveau: **${result.level}**`)] });
+      message.reply({ embeds: [successEmbed(`**${amount}** XP given to **${member.user.tag}**. Level: **${result.level}**`)] });
     }
   },
 
   // ══════════════ 🎉 FUN ══════════════
   '8ball': {
     category: 'Fun',
-    description: 'Posez une question à la boule magique',
+    description: 'Ask the magic 8-ball a question',
     usage: '!8ball [question]',
     async execute(message, args) {
-      const reponses = [
-        '✅ Absolument !', '✅ Certainement oui.', '✅ Sans aucun doute.',
-        '✅ Tout à fait.', '✅ Comme tu peux t\'y fier.',
-        '❓ Difficile à dire.', '❓ Réessaie plus tard.', '❓ Je ne peux pas prédire cela.',
-        '❌ N\'y compte pas.', '❌ Ma réponse est non.', '❌ Mes sources disent non.', '❌ Très douteux.'
+      const answers = [
+        '✅ Absolutely!', '✅ Certainly yes.', '✅ Without a doubt.',
+        '✅ Definitely.', '✅ You can rely on it.',
+        '❓ Hard to say.', '❓ Try again later.', '❓ I can\'t predict that.',
+        '❌ Don\'t count on it.', '❌ My answer is no.', '❌ My sources say no.', '❌ Very doubtful.'
       ];
-      const rep = reponses[Math.floor(Math.random() * reponses.length)];
-      message.reply({ embeds: [embed('🎱 Boule Magique', `**Question:** ${args.join(' ') || '???'}\n**Réponse:** ${rep}`, COLORS.primary)] });
+      const rep = answers[Math.floor(Math.random() * answers.length)];
+      message.reply({ embeds: [embed('🎱 Magic 8-Ball', `**Question:** ${args.join(' ') || '???'}\n**Answer:** ${rep}`, COLORS.primary)] });
     }
   },
 
   dice: {
     category: 'Fun',
-    description: 'Lancer un dé',
-    usage: '!dice [faces]',
+    description: 'Roll a die',
+    usage: '!dice [sides]',
     async execute(message, args) {
       const faces = parseInt(args[0]) || 6;
-      if (faces < 2 || faces > 1000) return message.reply({ embeds: [errorEmbed('Nombre de faces entre 2 et 1000.')] });
+      if (faces < 2 || faces > 1000) return message.reply({ embeds: [errorEmbed('Number of sides must be between 2 and 1000.')] });
       const result = Math.floor(Math.random() * faces) + 1;
-      message.reply({ embeds: [embed('🎲 Dé', `Vous avez lancé un d**${faces}** et obtenez : **${result}**`, COLORS.primary)] });
+      message.reply({ embeds: [embed('🎲 Dice', `You rolled a d**${faces}** and got: **${result}**`, COLORS.primary)] });
     }
   },
 
   coinflip: {
     category: 'Fun',
-    description: 'Pile ou face',
+    description: 'Flip a coin',
     async execute(message) {
-      const result = Math.random() < 0.5 ? '🪙 Pile' : '🪙 Face';
-      message.reply({ embeds: [embed('🪙 Pile ou Face', `Résultat : **${result}**`, COLORS.primary)] });
+      const result = Math.random() < 0.5 ? '🪙 Heads' : '🪙 Tails';
+      message.reply({ embeds: [embed('🪙 Coin Flip', `Result: **${result}**`, COLORS.primary)] });
     }
   },
 
   rps: {
     category: 'Fun',
-    description: 'Pierre, Feuille, Ciseaux',
-    usage: '!rps [pierre/feuille/ciseaux]',
+    description: 'Rock, Paper, Scissors',
+    usage: '!rps [rock/paper/scissors]',
     async execute(message, args) {
-      const choices = ['pierre', 'feuille', 'ciseaux'];
-      const emojis = { pierre: '🪨', feuille: '📄', ciseaux: '✂️' };
+      const choices = ['rock', 'paper', 'scissors'];
+      const emojis = { rock: '🪨', paper: '📄', scissors: '✂️' };
       const choice = args[0]?.toLowerCase();
-      if (!choices.includes(choice)) return message.reply({ embeds: [errorEmbed('Choisissez: pierre, feuille ou ciseaux.')] });
+      if (!choices.includes(choice)) return message.reply({ embeds: [errorEmbed('Choose: rock, paper or scissors.')] });
       const bot = choices[Math.floor(Math.random() * 3)];
-      let result = '🤝 Égalité !';
-      if ((choice === 'pierre' && bot === 'ciseaux') || (choice === 'feuille' && bot === 'pierre') || (choice === 'ciseaux' && bot === 'feuille'))
-        result = '🏆 Vous gagnez !';
+      let result = '🤝 Tie!';
+      if ((choice === 'rock' && bot === 'scissors') || (choice === 'paper' && bot === 'rock') || (choice === 'scissors' && bot === 'paper'))
+        result = '🏆 You win!';
       else if (choice !== bot)
-        result = '😔 Vous perdez !';
-      message.reply({ embeds: [embed('🎮 Pierre Feuille Ciseaux', `Vous: ${emojis[choice]} vs Moi: ${emojis[bot]}\n\n**${result}**`, COLORS.primary)] });
+        result = '😔 You lose!';
+      message.reply({ embeds: [embed('🎮 Rock Paper Scissors', `You: ${emojis[choice]} vs Me: ${emojis[bot]}\n\n**${result}**`, COLORS.primary)] });
     }
   },
 
   joke: {
     category: 'Fun',
-    description: 'Blague aléatoire',
+    description: 'Random joke',
     async execute(message) {
       const jokes = [
-        ['Pourquoi les plongeurs plongent-ils toujours en arrière et jamais en avant ?', 'Parce que sinon ils tomberaient dans le bateau !'],
-        ['Qu\'est-ce qu\'un canif ?', 'Un petit fien.'],
-        ['Comment appelle-t-on un chat tombé dans un pot de peinture ?', 'Un chat-peint.'],
-        ['Pourquoi les toilettes sont toujours blanches ?', 'Pour que le proprio se sente comme un roi.'],
-        ['Qu\'est-ce qu\'un crocodile qui surveille les autres crocodiles ?', 'Un croco-dile.'],
+        ['Why don\'t scientists trust atoms?', 'Because they make up everything!'],
+        ['What do you call a fish wearing a bowtie?', 'Sofishticated.'],
+        ['Why did the scarecrow win an award?', 'Because he was outstanding in his field!'],
+        ['Why don\'t skeletons fight each other?', 'They don\'t have the guts.'],
+        ['What do you call a bear with no teeth?', 'A gummy bear.'],
       ];
       const [setup, punchline] = jokes[Math.floor(Math.random() * jokes.length)];
-      message.reply({ embeds: [embed('😂 Blague', `${setup}\n\n||${punchline}||`, COLORS.primary)] });
+      message.reply({ embeds: [embed('😂 Joke', `${setup}\n\n||${punchline}||`, COLORS.primary)] });
     }
   },
 
   meme: {
     category: 'Fun',
-    description: 'Meme aléatoire',
+    description: 'Random meme',
     async execute(message) {
       try {
         const fetch = require('node-fetch');
@@ -607,31 +607,31 @@ const commands = {
         const e = new EmbedBuilder().setTitle(data.title).setImage(data.url).setColor(COLORS.primary).setFooter({ text: `👍 ${data.ups} | r/${data.subreddit}` });
         message.reply({ embeds: [e] });
       } catch {
-        message.reply({ embeds: [errorEmbed('Impossible de charger un mème.')] });
+        message.reply({ embeds: [errorEmbed('Unable to load a meme.')] });
       }
     }
   },
 
   choose: {
     category: 'Fun',
-    description: 'Choisir entre plusieurs options',
+    description: 'Choose between multiple options',
     usage: '!choose [option1] [option2] ...',
     async execute(message, args) {
-      if (args.length < 2) return message.reply({ embeds: [errorEmbed('Donnez au moins 2 options séparées par des espaces.')] });
-      const choix = args[Math.floor(Math.random() * args.length)];
-      message.reply({ embeds: [embed('🎯 Choix', `J'ai choisi : **${choix}**`, COLORS.primary)] });
+      if (args.length < 2) return message.reply({ embeds: [errorEmbed('Give at least 2 options separated by spaces.')] });
+      const choice = args[Math.floor(Math.random() * args.length)];
+      message.reply({ embeds: [embed('🎯 Choice', `I chose: **${choice}**`, COLORS.primary)] });
     }
   },
 
   poll: {
     category: 'Fun',
-    description: 'Créer un sondage',
+    description: 'Create a poll',
     usage: '!poll [question]',
     async execute(message, args) {
       const question = args.join(' ');
-      if (!question) return message.reply({ embeds: [errorEmbed('Fournissez une question.')] });
-      const e = embed('📊 Sondage', question, COLORS.primary);
-      e.setFooter({ text: `Sondage créé par ${message.author.tag}` });
+      if (!question) return message.reply({ embeds: [errorEmbed('Provide a question.')] });
+      const e = embed('📊 Poll', question, COLORS.primary);
+      e.setFooter({ text: `Poll created by ${message.author.tag}` });
       const msg = await message.channel.send({ embeds: [e] });
       await msg.react('👍');
       await msg.react('👎');
@@ -642,11 +642,11 @@ const commands = {
 
   trivia: {
     category: 'Fun',
-    description: 'Question de culture générale',
+    description: 'General knowledge question',
     async execute(message) {
       try {
         const fetch = require('node-fetch');
-        const res = await fetch('https://opentdb.com/api.php?amount=1&type=multiple&lang=fr');
+        const res = await fetch('https://opentdb.com/api.php?amount=1&type=multiple');
         const data = await res.json();
         const q = data.results[0];
         const answers = [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5);
@@ -655,29 +655,29 @@ const commands = {
         const msg = await message.reply({ embeds: [e] });
         answers.forEach((_, i) => msg.react(letters[i]));
       } catch {
-        message.reply({ embeds: [errorEmbed('Impossible de charger une question.')] });
+        message.reply({ embeds: [errorEmbed('Unable to load a question.')] });
       }
     }
   },
 
   reverse: {
     category: 'Fun',
-    description: 'Inverser un texte',
-    usage: '!reverse [texte]',
+    description: 'Reverse a text',
+    usage: '!reverse [text]',
     async execute(message, args) {
       const text = args.join(' ');
-      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un texte.')] });
-      message.reply({ embeds: [embed('🔄 Texte inversé', text.split('').reverse().join(''), COLORS.primary)] });
+      if (!text) return message.reply({ embeds: [errorEmbed('Provide some text.')] });
+      message.reply({ embeds: [embed('🔄 Reversed text', text.split('').reverse().join(''), COLORS.primary)] });
     }
   },
 
   mock: {
     category: 'Fun',
-    description: 'Moquer un texte',
-    usage: '!mock [texte]',
+    description: 'Mock a text',
+    usage: '!mock [text]',
     async execute(message, args) {
       const text = args.join(' ');
-      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un texte.')] });
+      if (!text) return message.reply({ embeds: [errorEmbed('Provide some text.')] });
       const result = text.split('').map((c, i) => i % 2 ? c.toUpperCase() : c.toLowerCase()).join('');
       message.reply({ embeds: [embed('🤡 Mock', result, COLORS.primary)] });
     }
@@ -685,91 +685,91 @@ const commands = {
 
   ascii: {
     category: 'Fun',
-    description: 'Texte en emojis lettres',
-    usage: '!ascii [texte]',
+    description: 'Text as letter emojis',
+    usage: '!ascii [text]',
     async execute(message, args) {
       const text = args.join(' ').toLowerCase().slice(0, 20);
-      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un texte.')] });
+      if (!text) return message.reply({ embeds: [errorEmbed('Provide some text.')] });
       const result = text.split('').map(c => /[a-z]/.test(c) ? `:regional_indicator_${c}: ` : c === ' ' ? '   ' : c).join('');
-      message.reply(result.slice(0, 2000));
+      message.reply({ embeds: [embed('🔠 ASCII', result.slice(0, 4000), COLORS.primary)] });
     }
   },
 
   slap: {
     category: 'Fun',
-    description: 'Gifler quelqu\'un',
-    usage: '!slap @membre',
+    description: 'Slap someone',
+    usage: '!slap @member',
     async execute(message, args) {
       const target = message.mentions.users.first();
-      if (!target) return message.reply({ embeds: [errorEmbed('Mentionnez quelqu\'un.')] });
-      message.reply({ embeds: [embed('👋 Giflé !', `**${message.author.username}** a giflé **${target.username}** ! 😵`, COLORS.primary)] });
+      if (!target) return message.reply({ embeds: [errorEmbed('Mention someone.')] });
+      message.reply({ embeds: [embed('👋 Slapped!', `**${message.author.username}** slapped **${target.username}**! 😵`, COLORS.primary)] });
     }
   },
 
   hug: {
     category: 'Fun',
-    description: 'Faire un câlin',
-    usage: '!hug @membre',
+    description: 'Give a hug',
+    usage: '!hug @member',
     async execute(message, args) {
       const target = message.mentions.users.first();
-      if (!target) return message.reply({ embeds: [errorEmbed('Mentionnez quelqu\'un.')] });
-      message.reply({ embeds: [embed('🤗 Câlin !', `**${message.author.username}** fait un câlin à **${target.username}** ! 💕`, COLORS.success)] });
+      if (!target) return message.reply({ embeds: [errorEmbed('Mention someone.')] });
+      message.reply({ embeds: [embed('🤗 Hug!', `**${message.author.username}** hugs **${target.username}**! 💕`, COLORS.success)] });
     }
   },
 
   ship: {
     category: 'Fun',
-    description: 'Compatibilité entre deux personnes',
-    usage: '!ship @membre1 @membre2',
+    description: 'Compatibility between two people',
+    usage: '!ship @member1 @member2',
     async execute(message, args) {
       const u1 = message.mentions.users.first();
       const u2 = message.mentions.users.at(1) || message.author;
       const percent = Math.floor(Math.random() * 101);
       const hearts = '❤️'.repeat(Math.floor(percent / 10)) + '🖤'.repeat(10 - Math.floor(percent / 10));
-      message.reply({ embeds: [embed('💘 Ship', `**${u1 ? u1.username : '???'}** + **${u2.username}**\n\n${hearts}\n\n**${percent}%** de compatibilité !`, COLORS.error)] });
+      message.reply({ embeds: [embed('💘 Ship', `**${u1 ? u1.username : '???'}** + **${u2.username}**\n\n${hearts}\n\n**${percent}%** compatible!`, COLORS.error)] });
     }
   },
 
-  // ══════════════ 🛠 UTILITAIRES ══════════════
+  // ══════════════ 🛠 UTILITIES ══════════════
   embed_cmd: {
-    category: 'Utilitaires',
-    description: 'Créer un embed personnalisé',
-    usage: '!embed [titre] | [description]',
+    category: 'Utilities',
+    description: 'Create a custom embed',
+    usage: '!embed [title] | [description]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const [title, ...descParts] = args.join(' ').split('|');
       const desc = descParts.join('|').trim();
-      if (!title) return message.reply({ embeds: [errorEmbed('Usage: !embed [titre] | [description]')] });
+      if (!title) return message.reply({ embeds: [errorEmbed('Usage: !embed [title] | [description]')] });
       await message.channel.send({ embeds: [embed(title.trim(), desc || '\u200b', COLORS.primary)] });
       message.delete().catch(() => {});
     }
   },
 
   say: {
-    category: 'Utilitaires',
-    description: 'Faire parler le bot',
+    category: 'Utilities',
+    description: 'Make the bot say something',
     usage: '!say [message]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const text = args.join(' ');
-      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un message.')] });
-      await message.channel.send(text);
+      if (!text) return message.reply({ embeds: [errorEmbed('Provide a message.')] });
+      await message.channel.send({ embeds: [embed('💬 Message', text, COLORS.primary)] });
       message.delete().catch(() => {});
     }
   },
 
   announce: {
-    category: 'Utilitaires',
-    description: 'Faire une annonce',
+    category: 'Utilities',
+    description: 'Make an announcement',
     usage: '!announce [message]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const text = args.join(' ');
       const e = new EmbedBuilder()
-        .setTitle('📢 Annonce')
+        .setTitle('📢 Announcement')
         .setDescription(text)
         .setColor(COLORS.warning)
-        .setFooter({ text: `Par ${message.author.tag}` })
+        .setFooter({ text: `By ${message.author.tag}` })
         .setTimestamp();
       message.channel.send({ content: '@here', embeds: [e] });
       message.delete().catch(() => {});
@@ -777,65 +777,65 @@ const commands = {
   },
 
   remindme: {
-    category: 'Utilitaires',
-    description: 'Se faire rappeler quelque chose',
-    usage: '!remindme [durée] [rappel]',
+    category: 'Utilities',
+    description: 'Get reminded about something',
+    usage: '!remindme [duration] [reminder]',
     async execute(message, args) {
       const duration = parseDuration(args[0]);
-      if (!duration) return message.reply({ embeds: [errorEmbed('Durée invalide. Ex: 10m, 1h, 2d')] });
-      const reminder = args.slice(1).join(' ') || 'Rappel !';
-      message.reply({ embeds: [successEmbed(`⏰ Je vous rappellerai dans **${formatDuration(duration)}** : ${reminder}`)] });
+      if (!duration) return message.reply({ embeds: [errorEmbed('Invalid duration. E.g.: 10m, 1h, 2d')] });
+      const reminder = args.slice(1).join(' ') || 'Reminder!';
+      message.reply({ embeds: [successEmbed(`⏰ I'll remind you in **${formatDuration(duration)}**: ${reminder}`)] });
       setTimeout(() => {
-        message.author.send({ embeds: [embed('⏰ Rappel !', reminder, COLORS.info)] }).catch(() => {
-          message.channel.send({ content: `<@${message.author.id}>`, embeds: [embed('⏰ Rappel !', reminder, COLORS.info)] });
+        message.author.send({ embeds: [embed('⏰ Reminder!', reminder, COLORS.info)] }).catch(() => {
+          message.channel.send({ content: `<@${message.author.id}>`, embeds: [embed('⏰ Reminder!', reminder, COLORS.info)] });
         });
       }, duration);
     }
   },
 
   calc: {
-    category: 'Utilitaires',
-    description: 'Calculatrice',
+    category: 'Utilities',
+    description: 'Calculator',
     usage: '!calc [expression]',
     async execute(message, args) {
       const expr = args.join(' ');
-      if (!expr) return message.reply({ embeds: [errorEmbed('Donnez une expression.')] });
+      if (!expr) return message.reply({ embeds: [errorEmbed('Provide an expression.')] });
       try {
         const result = Function('"use strict"; return (' + expr.replace(/[^0-9+\-*/().\s]/g, '') + ')')();
-        message.reply({ embeds: [embed('🧮 Calcul', `**${expr}** = **${result}**`, COLORS.info)] });
+        message.reply({ embeds: [embed('🧮 Calculation', `**${expr}** = **${result}**`, COLORS.info)] });
       } catch {
-        message.reply({ embeds: [errorEmbed('Expression invalide.')] });
+        message.reply({ embeds: [errorEmbed('Invalid expression.')] });
       }
     }
   },
 
   channelinfo: {
-    category: 'Utilitaires',
-    description: 'Informations sur le salon actuel',
+    category: 'Utilities',
+    description: 'Information about the current channel',
     async execute(message) {
       const c = message.channel;
-      const e = embed(`📋 #${c.name}`, `**ID:** ${c.id}\n**Type:** ${c.type}\n**Créé le:** <t:${Math.floor(c.createdTimestamp / 1000)}:D>\n**Sujet:** ${c.topic || 'Aucun'}`, COLORS.info);
+      const e = embed(`📋 #${c.name}`, `**ID:** ${c.id}\n**Type:** ${c.type}\n**Created on:** <t:${Math.floor(c.createdTimestamp / 1000)}:D>\n**Topic:** ${c.topic || 'None'}`, COLORS.info);
       message.reply({ embeds: [e] });
     }
   },
 
   roleinfo: {
-    category: 'Utilitaires',
-    description: 'Informations sur un rôle',
-    usage: '!roleinfo @rôle',
+    category: 'Utilities',
+    description: 'Information about a role',
+    usage: '!roleinfo @role',
     async execute(message, args) {
       const role = message.mentions.roles.first();
-      if (!role) return message.reply({ embeds: [errorEmbed('Mentionnez un rôle.')] });
+      if (!role) return message.reply({ embeds: [errorEmbed('Mention a role.')] });
       const e = new EmbedBuilder()
         .setTitle(`🎭 ${role.name}`)
         .setColor(role.color || COLORS.primary)
         .addFields(
           { name: '🆔 ID', value: role.id, inline: true },
-          { name: '👥 Membres', value: `${role.members.size}`, inline: true },
+          { name: '👥 Members', value: `${role.members.size}`, inline: true },
           { name: '📌 Position', value: `${role.position}`, inline: true },
-          { name: '🎨 Couleur', value: role.hexColor, inline: true },
-          { name: '📌 Mentionnable', value: role.mentionable ? 'Oui' : 'Non', inline: true },
-          { name: '👑 Hoisted', value: role.hoist ? 'Oui' : 'Non', inline: true },
+          { name: '🎨 Color', value: role.hexColor, inline: true },
+          { name: '📌 Mentionable', value: role.mentionable ? 'Yes' : 'No', inline: true },
+          { name: '👑 Hoisted', value: role.hoist ? 'Yes' : 'No', inline: true },
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
@@ -843,24 +843,24 @@ const commands = {
   },
 
   perms: {
-    category: 'Utilitaires',
-    description: 'Voir les permissions d\'un membre',
-    usage: '!perms [@membre]',
+    category: 'Utilities',
+    description: 'View a member\'s permissions',
+    usage: '!perms [@member]',
     async execute(message, args) {
       const member = message.mentions.members.first() || message.member;
       const perms = member.permissions.toArray().map(p => `\`${p}\``).join(', ');
-      message.reply({ embeds: [embed(`🔑 Permissions de ${member.user.tag}`, perms || 'Aucune', COLORS.info)] });
+      message.reply({ embeds: [embed(`🔑 Permissions for ${member.user.tag}`, perms || 'None', COLORS.info)] });
     }
   },
 
   timestamp: {
-    category: 'Utilitaires',
-    description: 'Afficher les timestamps Discord',
+    category: 'Utilities',
+    description: 'Show Discord timestamps',
     usage: '!timestamp [date]',
     async execute(message, args) {
       const date = args.length ? new Date(args.join(' ')) : new Date();
       const unix = Math.floor(date.getTime() / 1000);
-      if (isNaN(unix)) return message.reply({ embeds: [errorEmbed('Date invalide.')] });
+      if (isNaN(unix)) return message.reply({ embeds: [errorEmbed('Invalid date.')] });
       const formats = ['t', 'T', 'd', 'D', 'f', 'F', 'R'].map(f => `\`<t:${unix}:${f}>\` → <t:${unix}:${f}>`).join('\n');
       message.reply({ embeds: [embed('🕐 Timestamps', formats, COLORS.info)] });
     }
@@ -869,92 +869,92 @@ const commands = {
   // ══════════════ ⚙️ CONFIG (Dyno) ══════════════
   setprefix: {
     category: 'Config',
-    description: 'Changer le prefix du bot sur ce serveur',
+    description: 'Change the bot\'s prefix on this server',
     usage: '!setprefix [prefix]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const newPrefix = args[0];
-      if (!newPrefix) return message.reply({ embeds: [errorEmbed('Donnez un prefix.')] });
+      if (!newPrefix) return message.reply({ embeds: [errorEmbed('Provide a prefix.')] });
       await db.set(`prefix_${message.guild.id}`, newPrefix);
-      message.reply({ embeds: [successEmbed(`Prefix changé en \`${newPrefix}\``)] });
+      message.reply({ embeds: [successEmbed(`Prefix changed to \`${newPrefix}\``)] });
     }
   },
 
   setwelcome: {
     category: 'Config',
-    description: 'Configurer le message de bienvenue',
-    usage: '!setwelcome #salon [message]',
+    description: 'Configure the welcome message',
+    usage: '!setwelcome #channel [message]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
       const msg = args.slice(1).join(' ');
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
-      await db.set(`welcome_${message.guild.id}`, { channelId: channel.id, message: msg || 'Bienvenue {user} sur **{server}** ! 🎉' });
-      message.reply({ embeds: [successEmbed(`Message de bienvenue configuré dans <#${channel.id}>.`)] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
+      await db.set(`welcome_${message.guild.id}`, { channelId: channel.id, message: msg || 'Welcome {user} to **{server}**! 🎉' });
+      message.reply({ embeds: [successEmbed(`Welcome message configured in <#${channel.id}>.`)] });
     }
   },
 
   setleave: {
     category: 'Config',
-    description: 'Configurer le message de départ',
-    usage: '!setleave #salon [message]',
+    description: 'Configure the leave message',
+    usage: '!setleave #channel [message]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
       const msg = args.slice(1).join(' ');
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
-      await db.set(`leave_${message.guild.id}`, { channelId: channel.id, message: msg || '**{user}** a quitté le serveur. 👋' });
-      message.reply({ embeds: [successEmbed(`Message de départ configuré dans <#${channel.id}>.`)] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
+      await db.set(`leave_${message.guild.id}`, { channelId: channel.id, message: msg || '**{user}** has left the server. 👋' });
+      message.reply({ embeds: [successEmbed(`Leave message configured in <#${channel.id}>.`)] });
     }
   },
 
   setlogs: {
     category: 'Config',
-    description: 'Configurer le salon de logs',
-    usage: '!setlogs #salon',
+    description: 'Configure the logs channel',
+    usage: '!setlogs #channel',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
       await db.set(`logs_${message.guild.id}`, channel.id);
-      message.reply({ embeds: [successEmbed(`Salon de logs : <#${channel.id}>`)] });
+      message.reply({ embeds: [successEmbed(`Logs channel: <#${channel.id}>`)] });
     }
   },
 
   autorole: {
     category: 'Config',
-    description: 'Rôle automatique à l\'arrivée',
-    usage: '!autorole @rôle',
+    description: 'Automatic role on join',
+    usage: '!autorole @role',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const role = message.mentions.roles.first();
       if (!role) {
         await db.delete(`autorole_${message.guild.id}`);
-        return message.reply({ embeds: [successEmbed('Auto-rôle désactivé.')] });
+        return message.reply({ embeds: [successEmbed('Auto-role disabled.')] });
       }
       await db.set(`autorole_${message.guild.id}`, role.id);
-      message.reply({ embeds: [successEmbed(`Auto-rôle : **${role.name}**`)] });
+      message.reply({ embeds: [successEmbed(`Auto-role: **${role.name}**`)] });
     }
   },
 
   setlevelup: {
     category: 'Config',
-    description: 'Salon d\'annonce des montées de niveau',
-    usage: '!setlevelup #salon',
+    description: 'Channel for level-up announcements',
+    usage: '!setlevelup #channel',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
       await db.set(`levelup_${message.guild.id}`, channel.id);
-      message.reply({ embeds: [successEmbed(`Annonces de niveau dans <#${channel.id}>`)] });
+      message.reply({ embeds: [successEmbed(`Level-up announcements in <#${channel.id}>`)] });
     }
   },
 
   config: {
     category: 'Config',
-    description: 'Voir la config du serveur',
+    description: 'View the server configuration',
     async execute(message) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const g = message.guild.id;
       const welcome = await db.get(`welcome_${g}`);
       const leave = await db.get(`leave_${g}`);
@@ -963,136 +963,136 @@ const commands = {
       const levelup = await db.get(`levelup_${g}`);
       const prefix = await db.get(`prefix_${g}`);
       const e = new EmbedBuilder()
-        .setTitle(`⚙️ Config de ${message.guild.name}`)
+        .setTitle(`⚙️ ${message.guild.name}'s config`)
         .setColor(COLORS.info)
         .addFields(
           { name: '🔤 Prefix', value: prefix || PREFIX, inline: true },
-          { name: '👋 Bienvenue', value: welcome ? `<#${welcome.channelId}>` : 'Non configuré', inline: true },
-          { name: '🚪 Départ', value: leave ? `<#${leave.channelId}>` : 'Non configuré', inline: true },
-          { name: '📋 Logs', value: logs ? `<#${logs}>` : 'Non configuré', inline: true },
-          { name: '🎭 Auto-rôle', value: autorole ? `<@&${autorole}>` : 'Non configuré', inline: true },
-          { name: '⭐ Level-up', value: levelup ? `<#${levelup}>` : 'Non configuré', inline: true },
+          { name: '👋 Welcome', value: welcome ? `<#${welcome.channelId}>` : 'Not configured', inline: true },
+          { name: '🚪 Leave', value: leave ? `<#${leave.channelId}>` : 'Not configured', inline: true },
+          { name: '📋 Logs', value: logs ? `<#${logs}>` : 'Not configured', inline: true },
+          { name: '🎭 Auto-role', value: autorole ? `<@&${autorole}>` : 'Not configured', inline: true },
+          { name: '⭐ Level-up', value: levelup ? `<#${levelup}>` : 'Not configured', inline: true },
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
     }
   },
 
-  // ══════════════ 🎵 MUSIQUE BASIQUE ══════════════
+  // ══════════════ 🎵 BASIC MUSIC ══════════════
   play: {
-    category: 'Musique',
-    description: 'Jouer de la musique (nom YouTube)',
-    usage: '!play [titre]',
+    category: 'Music',
+    description: 'Play music (YouTube title)',
+    usage: '!play [title]',
     async execute(message, args) {
-      if (!message.member.voice.channel) return message.reply({ embeds: [errorEmbed('Rejoignez un salon vocal.')] });
+      if (!message.member.voice.channel) return message.reply({ embeds: [errorEmbed('Join a voice channel.')] });
       const query = args.join(' ');
-      if (!query) return message.reply({ embeds: [errorEmbed('Donnez un titre ou lien YouTube.')] });
-      message.reply({ embeds: [embed('🎵 Musique', `Recherche de **${query}**...\n\n⚠️ Installez \`@distube/distube\` pour la lecture audio.`, COLORS.primary)] });
+      if (!query) return message.reply({ embeds: [errorEmbed('Provide a title or YouTube link.')] });
+      message.reply({ embeds: [embed('🎵 Music', `Searching for **${query}**...\n\n⚠️ Install \`@distube/distube\` for audio playback.`, COLORS.primary)] });
     }
   },
 
-  // ══════════════ 🎰 ECONOMIE ══════════════
+  // ══════════════ 🎰 ECONOMY ══════════════
   balance: {
-    category: 'Économie',
-    description: 'Voir votre solde',
-    usage: '!balance [@membre]',
+    category: 'Economy',
+    description: 'View your balance',
+    usage: '!balance [@member]',
     async execute(message, args) {
       const user = message.mentions.users.first() || message.author;
       const coins = (await db.get(`coins_${message.guild.id}_${user.id}`)) || 0;
-      message.reply({ embeds: [embed('💰 Solde', `**${user.username}** possède **${coins.toLocaleString()}** 💎`, COLORS.xp)] });
+      message.reply({ embeds: [embed('💰 Balance', `**${user.username}** has **${coins.toLocaleString()}** 💎`, COLORS.xp)] });
     }
   },
 
   daily: {
-    category: 'Économie',
-    description: 'Récompense journalière',
+    category: 'Economy',
+    description: 'Daily reward',
     async execute(message) {
       const key = `daily_${message.guild.id}_${message.author.id}`;
       const last = await db.get(key);
       const now = Date.now();
       if (last && now - last < 86400000) {
         const remaining = 86400000 - (now - last);
-        return message.reply({ embeds: [errorEmbed(`Revenez dans **${formatDuration(remaining)}**.`)] });
+        return message.reply({ embeds: [errorEmbed(`Come back in **${formatDuration(remaining)}**.`)] });
       }
       const amount = Math.floor(Math.random() * 200) + 50;
       const coinKey = `coins_${message.guild.id}_${message.author.id}`;
       const current = (await db.get(coinKey)) || 0;
       await db.set(coinKey, current + amount);
       await db.set(key, now);
-      message.reply({ embeds: [embed('🎁 Daily', `Vous avez reçu **${amount}** 💎 !\nSolde: **${current + amount}** 💎`, COLORS.success)] });
+      message.reply({ embeds: [embed('🎁 Daily', `You received **${amount}** 💎!\nBalance: **${current + amount}** 💎`, COLORS.success)] });
     }
   },
 
   weekly: {
-    category: 'Économie',
-    description: 'Récompense hebdomadaire',
+    category: 'Economy',
+    description: 'Weekly reward',
     async execute(message) {
       const key = `weekly_${message.guild.id}_${message.author.id}`;
       const last = await db.get(key);
       const now = Date.now();
       if (last && now - last < 604800000) {
         const remaining = 604800000 - (now - last);
-        return message.reply({ embeds: [errorEmbed(`Revenez dans **${formatDuration(remaining)}**.`)] });
+        return message.reply({ embeds: [errorEmbed(`Come back in **${formatDuration(remaining)}**.`)] });
       }
       const amount = Math.floor(Math.random() * 1000) + 500;
       const coinKey = `coins_${message.guild.id}_${message.author.id}`;
       const current = (await db.get(coinKey)) || 0;
       await db.set(coinKey, current + amount);
       await db.set(key, now);
-      message.reply({ embeds: [embed('🗓 Weekly', `Vous avez reçu **${amount}** 💎 !\nSolde: **${current + amount}** 💎`, COLORS.success)] });
+      message.reply({ embeds: [embed('🗓 Weekly', `You received **${amount}** 💎!\nBalance: **${current + amount}** 💎`, COLORS.success)] });
     }
   },
 
   work: {
-    category: 'Économie',
-    description: 'Travailler pour gagner des coins',
+    category: 'Economy',
+    description: 'Work to earn coins',
     async execute(message) {
       const key = `work_${message.guild.id}_${message.author.id}`;
       const last = await db.get(key);
       const now = Date.now();
       if (last && now - last < 3600000) {
         const remaining = 3600000 - (now - last);
-        return message.reply({ embeds: [errorEmbed(`Revenez dans **${formatDuration(remaining)}**.`)] });
+        return message.reply({ embeds: [errorEmbed(`Come back in **${formatDuration(remaining)}**.`)] });
       }
-      const jobs = ['🍕 Pizzaïolo', '💻 Développeur', '🎨 Artiste', '🚗 Chauffeur', '🏥 Docteur'];
+      const jobs = ['🍕 Pizza maker', '💻 Developer', '🎨 Artist', '🚗 Driver', '🏥 Doctor'];
       const job = jobs[Math.floor(Math.random() * jobs.length)];
       const amount = Math.floor(Math.random() * 100) + 20;
       const coinKey = `coins_${message.guild.id}_${message.author.id}`;
       const current = (await db.get(coinKey)) || 0;
       await db.set(coinKey, current + amount);
       await db.set(key, now);
-      message.reply({ embeds: [embed('💼 Travail', `Vous travaillez comme **${job}** et gagnez **${amount}** 💎 !`, COLORS.success)] });
+      message.reply({ embeds: [embed('💼 Work', `You work as a **${job}** and earn **${amount}** 💎!`, COLORS.success)] });
     }
   },
 
   pay: {
-    category: 'Économie',
-    description: 'Envoyer des coins à un membre',
-    usage: '!pay @membre [montant]',
+    category: 'Economy',
+    description: 'Send coins to a member',
+    usage: '!pay @member [amount]',
     async execute(message, args) {
       const target = message.mentions.users.first();
       const amount = parseInt(args[1]);
-      if (!target || isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Usage: !pay @membre [montant]')] });
+      if (!target || isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Usage: !pay @member [amount]')] });
       const fromKey = `coins_${message.guild.id}_${message.author.id}`;
       const toKey = `coins_${message.guild.id}_${target.id}`;
       const from = (await db.get(fromKey)) || 0;
-      if (from < amount) return message.reply({ embeds: [errorEmbed('Solde insuffisant.')] });
+      if (from < amount) return message.reply({ embeds: [errorEmbed('Insufficient balance.')] });
       await db.set(fromKey, from - amount);
       const to = (await db.get(toKey)) || 0;
       await db.set(toKey, to + amount);
-      message.reply({ embeds: [successEmbed(`Vous avez envoyé **${amount}** 💎 à **${target.username}**.`)] });
+      message.reply({ embeds: [successEmbed(`You sent **${amount}** 💎 to **${target.username}**.`)] });
     }
   },
 
   slots: {
-    category: 'Économie',
-    description: 'Machine à sous',
-    usage: '!slots [mise]',
+    category: 'Economy',
+    description: 'Slot machine',
+    usage: '!slots [bet]',
     async execute(message, args) {
       const bet = parseInt(args[0]) || 10;
       const coinKey = `coins_${message.guild.id}_${message.author.id}`;
       const current = (await db.get(coinKey)) || 0;
-      if (current < bet) return message.reply({ embeds: [errorEmbed('Solde insuffisant.')] });
+      if (current < bet) return message.reply({ embeds: [errorEmbed('Insufficient balance.')] });
       const symbols = ['🍒', '🍋', '🍊', '🍇', '⭐', '💎'];
       const reels = Array.from({ length: 3 }, () => symbols[Math.floor(Math.random() * symbols.length)]);
       const display = `| ${reels.join(' | ')} |`;
@@ -1104,13 +1104,13 @@ const commands = {
       }
       const net = win - bet;
       await db.set(coinKey, current + net);
-      message.reply({ embeds: [embed('🎰 Slots', `${display}\n\n${win > 0 ? `🏆 Gagné **${win}** 💎 !` : `😔 Perdu **${bet}** 💎.`}\nSolde: **${current + net}** 💎`, win > 0 ? COLORS.success : COLORS.error)] });
+      message.reply({ embeds: [embed('🎰 Slots', `${display}\n\n${win > 0 ? `🏆 Won **${win}** 💎!` : `😔 Lost **${bet}** 💎.`}\nBalance: **${current + net}** 💎`, win > 0 ? COLORS.success : COLORS.error)] });
     }
   },
 
   richlist: {
-    category: 'Économie',
-    description: 'Classement des plus riches',
+    category: 'Economy',
+    description: 'Richest members leaderboard',
     async execute(message) {
       const allData = await db.all();
       const guildData = allData
@@ -1118,42 +1118,42 @@ const commands = {
         .map(e => ({ userId: e.id.split('_')[2], coins: e.value }))
         .sort((a, b) => b.coins - a.coins)
         .slice(0, 10);
-      if (!guildData.length) return message.reply({ embeds: [embed('💰 Top Riches', 'Aucune donnée.', COLORS.xp)] });
+      if (!guildData.length) return message.reply({ embeds: [embed('💰 Richest', 'No data.', COLORS.xp)] });
       const medals = ['🥇', '🥈', '🥉'];
       const list = guildData.map((d, i) => {
         const user = client.users.cache.get(d.userId);
         return `${medals[i] || `**${i+1}.**`} ${user ? user.tag : `<@${d.userId}>`} — **${d.coins.toLocaleString()}** 💎`;
       }).join('\n');
-      message.reply({ embeds: [embed('💰 Top Riches', list, COLORS.xp)] });
+      message.reply({ embeds: [embed('💰 Richest', list, COLORS.xp)] });
     }
   },
 
-  // ══════════════ 🎭 RÔLES RÉACTION (Circle) ══════════════
+  // ══════════════ 🎭 REACTION ROLES (Circle) ══════════════
   reactionrole: {
-    category: 'RôlesRéaction',
-    description: 'Créer un message de rôles par réaction',
-    usage: '!reactionrole #salon [emoji] [@rôle] [description]',
+    category: 'ReactionRoles',
+    description: 'Create a reaction role message',
+    usage: '!reactionrole #channel [emoji] [@role] [description]',
     async execute(message, args) {
-      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
       const role = message.mentions.roles.first();
-      if (!channel || !role || !args[1]) return message.reply({ embeds: [errorEmbed('Usage: !reactionrole #salon [emoji] @rôle')] });
+      if (!channel || !role || !args[1]) return message.reply({ embeds: [errorEmbed('Usage: !reactionrole #channel [emoji] @role')] });
       const emoji = args[1];
-      const e = embed('🎭 Rôles par réaction', `Réagissez avec ${emoji} pour obtenir le rôle **${role.name}** !`, COLORS.primary);
+      const e = embed('🎭 Reaction Roles', `React with ${emoji} to get the **${role.name}** role!`, COLORS.primary);
       const msg = await channel.send({ embeds: [e] });
       await msg.react(emoji);
       await db.set(`rr_${msg.id}`, { roleId: role.id, emoji });
-      message.reply({ embeds: [successEmbed(`Message de rôle créé dans <#${channel.id}>.`)] });
+      message.reply({ embeds: [successEmbed(`Reaction role message created in <#${channel.id}>.`)] });
     }
   },
 
   // ══════════════ 🧑‍💻 OWNER ══════════════
   eval: {
     category: 'Owner',
-    description: 'Exécuter du code JavaScript (Owner)',
+    description: 'Execute JavaScript code (Owner)',
     usage: '!eval [code]',
     async execute(message, args) {
-      if (message.author.id !== OWNER_ID) return message.reply({ embeds: [errorEmbed('Commande réservée au propriétaire.')] });
+      if (message.author.id !== OWNER_ID) return message.reply({ embeds: [errorEmbed('This command is owner-only.')] });
       try {
         const code = args.join(' ');
         let result = eval(code);
@@ -1169,41 +1169,41 @@ const commands = {
 
   reload: {
     category: 'Owner',
-    description: 'Recharger le bot',
+    description: 'Reload the bot',
     async execute(message) {
       if (message.author.id !== OWNER_ID) return;
-      message.reply({ embeds: [successEmbed('Rechargement...')] }).then(() => process.exit(0));
+      message.reply({ embeds: [successEmbed('Reloading...')] }).then(() => process.exit(0));
     }
   },
 
   guilds: {
     category: 'Owner',
-    description: 'Liste des serveurs du bot',
+    description: 'List of servers the bot is in',
     async execute(message) {
       if (message.author.id !== OWNER_ID) return;
-      const list = client.guilds.cache.map(g => `**${g.name}** — ${g.memberCount} membres`).join('\n');
-      message.reply({ embeds: [embed(`🌐 Serveurs (${client.guilds.cache.size})`, list.slice(0, 4000) || 'Aucun', COLORS.info)] });
+      const list = client.guilds.cache.map(g => `**${g.name}** — ${g.memberCount} members`).join('\n');
+      message.reply({ embeds: [embed(`🌐 Servers (${client.guilds.cache.size})`, list.slice(0, 4000) || 'None', COLORS.info)] });
     }
   },
 
 };
 
-// Alias commandes embed
-commands['clear'] = { ...commands.purge, description: 'Alias de !purge' };
-commands['lb'] = { ...commands.leaderboard, description: 'Alias de !leaderboard' };
-commands['bal'] = { ...commands.balance, description: 'Alias de !balance' };
+// Command aliases
+commands['clear'] = { ...commands.purge, description: 'Alias for !purge' };
+commands['lb'] = { ...commands.leaderboard, description: 'Alias for !leaderboard' };
+commands['bal'] = { ...commands.balance, description: 'Alias for !balance' };
 
 // ─── Event: Message ───────────────────────────────────────────────────────────
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
 
-  // XP Auto
+  // Auto XP
   if (Math.random() < 0.5) {
     const result = await addXP(message.member, Math.floor(Math.random() * 10) + 5);
     if (result.leveledUp) {
       const levelupChannel = await db.get(`levelup_${message.guild.id}`);
       const channel = levelupChannel ? message.guild.channels.cache.get(levelupChannel) : message.channel;
-      channel?.send({ embeds: [embed('⭐ Niveau supérieur !', `<@${message.author.id}> a atteint le **niveau ${result.level}** ! 🎉`, COLORS.xp)] });
+      channel?.send({ embeds: [embed('⭐ Level up!', `<@${message.author.id}> reached **level ${result.level}**! 🎉`, COLORS.xp)] });
     }
   }
 
@@ -1217,20 +1217,20 @@ client.on('messageCreate', async (message) => {
 
   // Cooldown
   const cd = cooldowns.get(`${message.author.id}_${commandName}`);
-  if (cd && Date.now() < cd) return message.reply({ embeds: [errorEmbed(`Attendez \`${Math.ceil((cd - Date.now()) / 1000)}s\`.`)] });
+  if (cd && Date.now() < cd) return message.reply({ embeds: [errorEmbed(`Wait \`${Math.ceil((cd - Date.now()) / 1000)}s\`.`)] });
   cooldowns.set(`${message.author.id}_${commandName}`, Date.now() + 3000);
 
   try {
     await command.execute(message, args);
   } catch (err) {
-    console.error(`[Erreur] ${commandName}:`, err);
-    message.reply({ embeds: [errorEmbed('Une erreur est survenue.')] });
+    console.error(`[Error] ${commandName}:`, err);
+    message.reply({ embeds: [errorEmbed('An error occurred.')] });
   }
 });
 
-// ─── Event: Membres ───────────────────────────────────────────────────────────
+// ─── Event: Members ───────────────────────────────────────────────────────────
 client.on('guildMemberAdd', async (member) => {
-  // Message de bienvenue
+  // Welcome message
   const welcome = await db.get(`welcome_${member.guild.id}`);
   if (welcome) {
     const channel = member.guild.channels.cache.get(welcome.channelId);
@@ -1238,9 +1238,9 @@ client.on('guildMemberAdd', async (member) => {
       .replace('{user}', `<@${member.id}>`)
       .replace('{server}', member.guild.name)
       .replace('{count}', member.guild.memberCount);
-    channel?.send({ embeds: [embed('👋 Bienvenue !', msg, COLORS.success)] });
+    channel?.send({ embeds: [embed('👋 Welcome!', msg, COLORS.success)] });
   }
-  // Auto-rôle
+  // Auto-role
   const autorole = await db.get(`autorole_${member.guild.id}`);
   if (autorole) {
     const role = member.guild.roles.cache.get(autorole);
@@ -1255,11 +1255,11 @@ client.on('guildMemberRemove', async (member) => {
     const msg = leave.message
       .replace('{user}', member.user.tag)
       .replace('{server}', member.guild.name);
-    channel?.send({ embeds: [embed('🚪 Départ', msg, COLORS.warning)] });
+    channel?.send({ embeds: [embed('🚪 Leave', msg, COLORS.warning)] });
   }
 });
 
-// ─── Event: Réactions (rôles réaction) ───────────────────────────────────────
+// ─── Event: Reactions (reaction roles) ───────────────────────────────────────
 client.on('messageReactionAdd', async (reaction, user) => {
   if (user.bot) return;
   if (reaction.partial) await reaction.fetch().catch(() => {});
@@ -1292,14 +1292,14 @@ client.on('messageDelete', async (message) => {
   if (!logChannelId || !message.guild) return;
   const channel = message.guild.channels.cache.get(logChannelId);
   if (!channel) return;
-  channel.send({ embeds: [embed('🗑 Message supprimé', `**Auteur:** ${message.author?.tag || 'Inconnu'}\n**Salon:** <#${message.channelId}>\n**Contenu:** ${message.content?.slice(0, 500) || 'Aucun contenu'}`, COLORS.mod)] });
+  channel.send({ embeds: [embed('🗑 Message deleted', `**Author:** ${message.author?.tag || 'Unknown'}\n**Channel:** <#${message.channelId}>\n**Content:** ${message.content?.slice(0, 500) || 'No content'}`, COLORS.mod)] });
 });
 
 client.on('guildBanAdd', async (ban) => {
   const logChannelId = await db.get(`logs_${ban.guild.id}`);
   if (!logChannelId) return;
   const channel = ban.guild.channels.cache.get(logChannelId);
-  channel?.send({ embeds: [embed('🔨 Membre banni', `**Utilisateur:** ${ban.user.tag}\n**Raison:** ${ban.reason || 'Aucune'}`, COLORS.mod)] });
+  channel?.send({ embeds: [embed('🔨 Member banned', `**User:** ${ban.user.tag}\n**Reason:** ${ban.reason || 'None'}`, COLORS.mod)] });
 });
 
 // ─── Ready ────────────────────────────────────────────────────────────────────
@@ -1307,13 +1307,13 @@ client.once('ready', () => {
   const count = Object.keys(commands).length;
   console.log(`
 ╔══════════════════════════════════════╗
-║   ✅ ${client.user.tag} connecté !        ║
-║   📡 ${client.guilds.cache.size} serveur(s)               ║
-║   📦 ${count} commandes chargées        ║
-║   🔤 Préfixe : ${PREFIX}                    ║
+║   ✅ ${client.user.tag} connected!        ║
+║   📡 ${client.guilds.cache.size} server(s)               ║
+║   📦 ${count} commands loaded            ║
+║   🔤 Prefix: ${PREFIX}                       ║
 ╚══════════════════════════════════════╝
   `);
-  client.user.setActivity(`${PREFIX}help | ${count} commandes`, { type: 3 });
+  client.user.setActivity(`${PREFIX}help | ${count} commands`, { type: 3 });
 });
 
 // ─── Login ────────────────────────────────────────────────────────────────────

@@ -1,1108 +1,1318 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║          BOT DISCORD MULTIFONCTION — PREFIX: !               ║
+ * ║   100+ commandes : Modération, Niveaux, Fun, Utilitaires     ║
+ * ║   Inspiré de : Saphire • Dyno • Arcane • Circle             ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ */
 
-require("dotenv").config();
-const {
-  Client,
-  GatewayIntentBits,
-  REST,
-  Routes,
-  SlashCommandBuilder,
-  EmbedBuilder,
-  PermissionFlagsBits,
-  ActivityType,
-  Collection,
-} = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { QuickDB } = require('quick.db');
+const ms = require('ms');
 
-// ─── CLIENT ────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
+const PREFIX = '!';
+const TOKEN = 'VOTRE_TOKEN_ICI'; // Remplacez par votre token
+const OWNER_ID = 'VOTRE_ID_ICI'; // Votre ID Discord
+
+const db = new QuickDB();
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildPresences,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
   ],
 });
 
 client.commands = new Collection();
+const cooldowns = new Collection();
 
-// ─── PREFIX ────────────────────────────────────────────────
-const PREFIX = "!";
-
-// ─── COLOUR PALETTE ────────────────────────────────────────
+// ─── Couleurs & Helpers ───────────────────────────────────────────────────────
 const COLORS = {
-  gold:    0xFFD700,
-  blue:    0x5865F2,
-  green:   0x57F287,
-  red:     0xED4245,
-  purple:  0x9B59B6,
-  cyan:    0x1ABC9C,
-  orange:  0xE67E22,
-  pink:    0xFF6B9D,
-  white:   0xFFFFFF,
-  dark:    0x2F3136,
+  primary:  0x5865F2,
+  success:  0x57F287,
+  error:    0xED4245,
+  warning:  0xFEE75C,
+  info:     0x5865F2,
+  xp:       0xF1C40F,
+  mod:      0xE74C3C,
 };
 
-// ─── HELPER ────────────────────────────────────────────────
-function embed(title, description, color = COLORS.blue) {
-  return new EmbedBuilder()
-    .setTitle(title)
-    .setDescription(description)
-    .setColor(color)
-    .setTimestamp()
-    .setFooter({ text: "Premium Bot • All rights reserved" });
+function embed(title, desc, color = COLORS.primary) {
+  return new EmbedBuilder().setTitle(title).setDescription(desc).setColor(color).setTimestamp();
 }
 
-// ─── COMMAND DEFINITIONS ───────────────────────────────────
-const commandDefs = [
-  // ── PREMIUM SERVICES (tickets / activations) ──────────────
-  {
-    data: new SlashCommandBuilder()
-      .setName("arcane")
-      .setDescription("Open an Arcane Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Why you need Arcane Premium").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🟣 Arcane Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nYour Arcane Premium ticket has been created. Staff will assist you shortly.`, COLORS.purple)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("kingpremium")
-      .setDescription("Open a King Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason for King Premium").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("👑 King Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nYour King Premium ticket is open. Await royal support!`, COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("sapphirecircle")
-      .setDescription("Open a Sapphire Circle Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason for Sapphire Circle").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("💎 Sapphire Circle Premium", `**Reason:** ${i.options.getString("reason")}\n\nWelcome to the Sapphire Circle. Your ticket has been submitted.`, COLORS.cyan)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("dynopremium")
-      .setDescription("Open a Dyno Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason for Dyno Premium").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("⚙️ Dyno Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nYour Dyno Premium request is logged. A staff member will be with you soon.`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("mee6premium")
-      .setDescription("Open a MEE6 Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🤖 MEE6 Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nMEE6 Premium ticket opened!`, COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("nitropremium")
-      .setDescription("Open a Nitro Premium gift ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("✨ Nitro Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nNitro Premium ticket submitted. Staff will contact you.`, COLORS.pink)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("vippremium")
-      .setDescription("Open a VIP Premium membership ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("⭐ VIP Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nVIP Premium ticket created successfully.`, COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("elitepremium")
-      .setDescription("Open an Elite Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🏆 Elite Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nElite Premium ticket opened.`, COLORS.purple)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("diamondpremium")
-      .setDescription("Open a Diamond Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("💠 Diamond Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nDiamond Premium ticket submitted.`, COLORS.cyan)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("godpremium")
-      .setDescription("Open a God-tier Premium ticket")
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🌟 God Premium Ticket", `**Reason:** ${i.options.getString("reason")}\n\nGod Premium ticket created. You're at the top tier!`, COLORS.gold)] });
-    },
+function errorEmbed(desc) {
+  return embed('❌ Erreur', desc, COLORS.error);
+}
+
+function successEmbed(desc) {
+  return embed('✅ Succès', desc, COLORS.success);
+}
+
+function parseDuration(str) {
+  try { return ms(str); } catch { return null; }
+}
+
+function formatDuration(ms_val) {
+  const s = Math.floor(ms_val / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (d > 0) return `${d}j ${h % 24}h`;
+  if (h > 0) return `${h}h ${m % 60}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
+}
+
+// ─── XP System ────────────────────────────────────────────────────────────────
+async function addXP(member, amount) {
+  const key = `xp_${member.guild.id}_${member.id}`;
+  const current = (await db.get(key)) || { xp: 0, level: 0 };
+  current.xp += amount;
+  const xpNeeded = current.level * 100 + 100;
+  let leveledUp = false;
+  if (current.xp >= xpNeeded) {
+    current.xp -= xpNeeded;
+    current.level++;
+    leveledUp = true;
+  }
+  await db.set(key, current);
+  return { ...current, leveledUp };
+}
+
+async function getXP(userId, guildId) {
+  return (await db.get(`xp_${guildId}_${userId}`)) || { xp: 0, level: 0 };
+}
+
+// ─── Commandes ────────────────────────────────────────────────────────────────
+const commands = {
+
+  // ══════════════ ℹ️ AIDE & INFO ══════════════
+  help: {
+    category: 'Info',
+    description: 'Affiche toutes les commandes',
+    usage: '!help [commande]',
+    async execute(message, args) {
+      if (args[0]) {
+        const cmd = commands[args[0].toLowerCase()];
+        if (!cmd) return message.reply({ embeds: [errorEmbed(`Commande \`${args[0]}\` introuvable.`)] });
+        return message.reply({
+          embeds: [embed(`📖 ${args[0]}`, `**Description:** ${cmd.description}\n**Usage:** \`${cmd.usage || `!${args[0]}`}\`\n**Catégorie:** ${cmd.category || 'Général'}`, COLORS.info)]
+        });
+      }
+      const cats = {};
+      for (const [name, cmd] of Object.entries(commands)) {
+        const cat = cmd.category || 'Autre';
+        if (!cats[cat]) cats[cat] = [];
+        cats[cat].push(`\`!${name}\``);
+      }
+      const e = new EmbedBuilder()
+        .setTitle('📚 Aide — Toutes les commandes')
+        .setColor(COLORS.primary)
+        .setFooter({ text: `Prefix: ${PREFIX} • ${Object.keys(commands).length} commandes` })
+        .setTimestamp();
+      for (const [cat, cmds] of Object.entries(cats)) {
+        e.addFields({ name: cat, value: cmds.join(', '), inline: false });
+      }
+      message.reply({ embeds: [e] });
+    }
   },
 
-  // ── MODERATION ────────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder()
-      .setName("ban")
-      .setDescription("Ban a member")
-      .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-      .addUserOption(o => o.setName("user").setDescription("User to ban").setRequired(true))
-      .addStringOption(o => o.setName("reason").setDescription("Reason")),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      const reason = i.options.getString("reason") ?? "No reason provided";
-      await i.guild.members.ban(user, { reason });
-      await i.reply({ embeds: [embed("🔨 User Banned", `**${user.tag}** has been banned.\n**Reason:** ${reason}`, COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("kick")
-      .setDescription("Kick a member")
-      .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
-      .addUserOption(o => o.setName("user").setDescription("User to kick").setRequired(true))
-      .addStringOption(o => o.setName("reason").setDescription("Reason")),
-    async execute(i) {
-      const member = i.guild.members.cache.get(i.options.getUser("user").id);
-      const reason = i.options.getString("reason") ?? "No reason provided";
-      await member?.kick(reason);
-      await i.reply({ embeds: [embed("👢 User Kicked", `**${member?.user.tag}** has been kicked.\n**Reason:** ${reason}`, COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("mute")
-      .setDescription("Timeout (mute) a member")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-      .addUserOption(o => o.setName("user").setDescription("User to mute").setRequired(true))
-      .addIntegerOption(o => o.setName("minutes").setDescription("Duration in minutes").setRequired(true)),
-    async execute(i) {
-      const member = i.guild.members.cache.get(i.options.getUser("user").id);
-      const mins = i.options.getInteger("minutes");
-      await member?.timeout(mins * 60 * 1000);
-      await i.reply({ embeds: [embed("🔇 User Muted", `**${member?.user.tag}** muted for **${mins} minutes**.`, COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("unmute")
-      .setDescription("Remove timeout from a member")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-      .addUserOption(o => o.setName("user").setDescription("User to unmute").setRequired(true)),
-    async execute(i) {
-      const member = i.guild.members.cache.get(i.options.getUser("user").id);
-      await member?.timeout(null);
-      await i.reply({ embeds: [embed("🔊 User Unmuted", `**${member?.user.tag}** has been unmuted.`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("warn")
-      .setDescription("Warn a member")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-      .addUserOption(o => o.setName("user").setDescription("User to warn").setRequired(true))
-      .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      const reason = i.options.getString("reason");
-      await i.reply({ embeds: [embed("⚠️ Warning Issued", `**${user.tag}** has been warned.\n**Reason:** ${reason}`, COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("purge")
-      .setDescription("Bulk-delete messages")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-      .addIntegerOption(o => o.setName("amount").setDescription("Messages to delete (1–100)").setRequired(true).setMinValue(1).setMaxValue(100)),
-    async execute(i) {
-      const amount = i.options.getInteger("amount");
-      await i.channel.bulkDelete(amount, true);
-      await i.reply({ embeds: [embed("🧹 Messages Purged", `Deleted **${amount}** messages.`, COLORS.red)], ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("slowmode")
-      .setDescription("Set channel slowmode")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
-      .addIntegerOption(o => o.setName("seconds").setDescription("Slowmode in seconds (0 = off)").setRequired(true)),
-    async execute(i) {
-      const secs = i.options.getInteger("seconds");
-      await i.channel.setRateLimitPerUser(secs);
-      await i.reply({ embeds: [embed("🐢 Slowmode Set", `Slowmode set to **${secs}s** in this channel.`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("lock")
-      .setDescription("Lock the current channel")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
-    async execute(i) {
-      await i.channel.permissionOverwrites.edit(i.guild.roles.everyone, { SendMessages: false });
-      await i.reply({ embeds: [embed("🔒 Channel Locked", "This channel has been locked.", COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("unlock")
-      .setDescription("Unlock the current channel")
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
-    async execute(i) {
-      await i.channel.permissionOverwrites.edit(i.guild.roles.everyone, { SendMessages: true });
-      await i.reply({ embeds: [embed("🔓 Channel Unlocked", "This channel has been unlocked.", COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder()
-      .setName("unban")
-      .setDescription("Unban a user by ID")
-      .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-      .addStringOption(o => o.setName("userid").setDescription("User ID to unban").setRequired(true)),
-    async execute(i) {
-      const id = i.options.getString("userid");
-      await i.guild.members.unban(id);
-      await i.reply({ embeds: [embed("✅ User Unbanned", `User **${id}** has been unbanned.`, COLORS.green)] });
-    },
+  botinfo: {
+    category: 'Info',
+    description: 'Informations sur le bot',
+    async execute(message) {
+      const e = new EmbedBuilder()
+        .setTitle('🤖 Informations du Bot')
+        .setColor(COLORS.primary)
+        .addFields(
+          { name: '📡 Ping', value: `${client.ws.ping}ms`, inline: true },
+          { name: '⏱ Uptime', value: formatDuration(client.uptime), inline: true },
+          { name: '🖥 Serveurs', value: `${client.guilds.cache.size}`, inline: true },
+          { name: '👥 Membres', value: `${client.users.cache.size}`, inline: true },
+          { name: '📦 discord.js', value: require('discord.js').version, inline: true },
+          { name: '🟢 Node.js', value: process.version, inline: true },
+        )
+        .setThumbnail(client.user.displayAvatarURL())
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
   },
 
-  // ── SERVER INFO ───────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("serverinfo").setDescription("Show server information"),
-    async execute(i) {
-      const g = i.guild;
-      await i.reply({
-        embeds: [
-          embed("🏠 Server Info", `**Name:** ${g.name}\n**Members:** ${g.memberCount}\n**Owner:** <@${g.ownerId}>\n**Created:** <t:${Math.floor(g.createdTimestamp / 1000)}:R>\n**Boost Level:** ${g.premiumTier}`, COLORS.blue)
-            .setThumbnail(g.iconURL()),
-        ],
-      });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("userinfo").setDescription("Show user information").addUserOption(o => o.setName("user").setDescription("Target user")),
-    async execute(i) {
-      const user = i.options.getUser("user") ?? i.user;
-      const member = i.guild.members.cache.get(user.id);
-      await i.reply({
-        embeds: [
-          embed("👤 User Info", `**Tag:** ${user.tag}\n**ID:** ${user.id}\n**Joined:** <t:${Math.floor(member?.joinedTimestamp / 1000)}:R>\n**Created:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`, COLORS.cyan)
-            .setThumbnail(user.displayAvatarURL()),
-        ],
-      });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("avatar").setDescription("Get a user's avatar").addUserOption(o => o.setName("user").setDescription("Target user")),
-    async execute(i) {
-      const user = i.options.getUser("user") ?? i.user;
-      await i.reply({ embeds: [embed(`🖼️ ${user.username}'s Avatar`, `[Click to open](${user.displayAvatarURL({ size: 4096 })})`, COLORS.purple).setImage(user.displayAvatarURL({ size: 4096 }))] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("roleinfo").setDescription("Get info about a role").addRoleOption(o => o.setName("role").setDescription("Target role").setRequired(true)),
-    async execute(i) {
-      const role = i.options.getRole("role");
-      await i.reply({ embeds: [embed(`🎭 Role: ${role.name}`, `**ID:** ${role.id}\n**Color:** ${role.hexColor}\n**Members:** ${role.members.size}\n**Mentionable:** ${role.mentionable}\n**Position:** ${role.position}`, role.color || COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("channelinfo").setDescription("Get info about a channel").addChannelOption(o => o.setName("channel").setDescription("Target channel")),
-    async execute(i) {
-      const ch = i.options.getChannel("channel") ?? i.channel;
-      await i.reply({ embeds: [embed(`📺 Channel: ${ch.name}`, `**ID:** ${ch.id}\n**Type:** ${ch.type}\n**Created:** <t:${Math.floor(ch.createdTimestamp / 1000)}:R>`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("boostinfo").setDescription("Show server boost stats"),
-    async execute(i) {
-      const g = i.guild;
-      await i.reply({ embeds: [embed("💎 Boost Info", `**Boost Level:** ${g.premiumTier}\n**Total Boosts:** ${g.premiumSubscriptionCount}\n**Boosters:** ${g.members.cache.filter(m => m.premiumSince).size}`, COLORS.pink)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("emojis").setDescription("List server emojis"),
-    async execute(i) {
-      const emojis = i.guild.emojis.cache.map(e => `${e}`).slice(0, 40).join(" ") || "No emojis found";
-      await i.reply({ embeds: [embed("😀 Server Emojis", emojis, COLORS.yellow || COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("roles").setDescription("List all server roles"),
-    async execute(i) {
-      const roles = i.guild.roles.cache.sort((a, b) => b.position - a.position).map(r => r.toString()).slice(0, 30).join(", ");
-      await i.reply({ embeds: [embed("🎭 Server Roles", roles || "No roles", COLORS.purple)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("members").setDescription("Show member count breakdown"),
-    async execute(i) {
-      const total = i.guild.memberCount;
-      const bots = i.guild.members.cache.filter(m => m.user.bot).size;
-      await i.reply({ embeds: [embed("👥 Members", `**Total:** ${total}\n**Humans:** ${total - bots}\n**Bots:** ${bots}`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("inviteinfo").setDescription("Create an invite link for this channel"),
-    async execute(i) {
-      const invite = await i.channel.createInvite({ maxAge: 86400, maxUses: 10 });
-      await i.reply({ embeds: [embed("🔗 Invite Created", `Here's your invite: **${invite.url}**\nExpires in 24 hours, max 10 uses.`, COLORS.blue)] });
-    },
+  serverinfo: {
+    category: 'Info',
+    description: 'Infos sur le serveur',
+    async execute(message) {
+      const g = message.guild;
+      const e = new EmbedBuilder()
+        .setTitle(`🏠 ${g.name}`)
+        .setColor(COLORS.primary)
+        .setThumbnail(g.iconURL())
+        .addFields(
+          { name: '👑 Propriétaire', value: `<@${g.ownerId}>`, inline: true },
+          { name: '👥 Membres', value: `${g.memberCount}`, inline: true },
+          { name: '📅 Créé le', value: `<t:${Math.floor(g.createdTimestamp / 1000)}:D>`, inline: true },
+          { name: '💬 Salons', value: `${g.channels.cache.size}`, inline: true },
+          { name: '🎭 Rôles', value: `${g.roles.cache.size}`, inline: true },
+          { name: '😀 Emojis', value: `${g.emojis.cache.size}`, inline: true },
+          { name: '🔒 Vérification', value: g.verificationLevel.toString(), inline: true },
+          { name: '💎 Boosts', value: `${g.premiumSubscriptionCount || 0} (Tier ${g.premiumTier})`, inline: true },
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
   },
 
-  // ── FUN ───────────────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("coinflip").setDescription("Flip a coin"),
-    async execute(i) {
-      const result = Math.random() < 0.5 ? "🪙 Heads!" : "🪙 Tails!";
-      await i.reply({ embeds: [embed("Coin Flip", result, COLORS.gold)] });
-    },
+  userinfo: {
+    category: 'Info',
+    description: 'Infos sur un utilisateur',
+    usage: '!userinfo [@membre]',
+    async execute(message, args) {
+      const member = message.mentions.members.first() || message.member;
+      const u = member.user;
+      const e = new EmbedBuilder()
+        .setTitle(`👤 ${u.tag}`)
+        .setColor(member.displayHexColor || COLORS.primary)
+        .setThumbnail(u.displayAvatarURL({ dynamic: true }))
+        .addFields(
+          { name: '🆔 ID', value: u.id, inline: true },
+          { name: '📅 Compte créé', value: `<t:${Math.floor(u.createdTimestamp / 1000)}:D>`, inline: true },
+          { name: '📥 A rejoint le', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`, inline: true },
+          { name: '🎭 Rôles', value: member.roles.cache.filter(r => r.id !== message.guild.id).map(r => `<@&${r.id}>`).join(', ') || 'Aucun', inline: false },
+          { name: '🤖 Bot', value: u.bot ? 'Oui' : 'Non', inline: true },
+          { name: '💎 Pseudo', value: member.displayName, inline: true },
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
   },
-  {
-    data: new SlashCommandBuilder().setName("dice").setDescription("Roll a dice").addIntegerOption(o => o.setName("sides").setDescription("Number of sides (default 6)")),
-    async execute(i) {
-      const sides = i.options.getInteger("sides") ?? 6;
-      const roll = Math.floor(Math.random() * sides) + 1;
-      await i.reply({ embeds: [embed("🎲 Dice Roll", `You rolled a **${roll}** on a ${sides}-sided die!`, COLORS.purple)] });
-    },
+
+  avatar: {
+    category: 'Info',
+    description: 'Affiche l\'avatar d\'un membre',
+    usage: '!avatar [@membre]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+      const e = new EmbedBuilder()
+        .setTitle(`🖼 Avatar de ${user.username}`)
+        .setImage(user.displayAvatarURL({ dynamic: true, size: 512 }))
+        .setColor(COLORS.primary);
+      message.reply({ embeds: [e] });
+    }
   },
-  {
-    data: new SlashCommandBuilder().setName("8ball").setDescription("Ask the magic 8-ball").addStringOption(o => o.setName("question").setDescription("Your question").setRequired(true)),
-    async execute(i) {
-      const answers = ["It is certain.", "Without a doubt.", "Yes, definitely.", "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.", "Signs point to yes.", "Reply hazy, try again.", "Ask again later.", "Better not tell you now.", "Cannot predict now.", "Don't count on it.", "My reply is no.", "My sources say no.", "Outlook not so good.", "Very doubtful."];
-      const answer = answers[Math.floor(Math.random() * answers.length)];
-      await i.reply({ embeds: [embed("🎱 Magic 8-Ball", `**Question:** ${i.options.getString("question")}\n**Answer:** ${answer}`, COLORS.dark)] });
-    },
+
+  ping: {
+    category: 'Info',
+    description: 'Latence du bot',
+    async execute(message) {
+      const m = await message.reply('🏓 Calcul...');
+      m.edit({ content: `🏓 Pong! \`${client.ws.ping}ms\` WebSocket — \`${m.createdTimestamp - message.createdTimestamp}ms\` API` });
+    }
   },
-  {
-    data: new SlashCommandBuilder().setName("rps").setDescription("Play Rock Paper Scissors").addStringOption(o => o.setName("choice").setDescription("Your choice").setRequired(true).addChoices({ name: "Rock", value: "rock" }, { name: "Paper", value: "paper" }, { name: "Scissors", value: "scissors" })),
-    async execute(i) {
-      const choices = ["rock", "paper", "scissors"];
+
+  invite: {
+    category: 'Info',
+    description: 'Lien d\'invitation du bot',
+    async execute(message) {
+      const link = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot`;
+      message.reply({ embeds: [embed('📩 Inviter le bot', `[Clique ici pour m'inviter](${link})`, COLORS.info)] });
+    }
+  },
+
+  // ══════════════ 🔨 MODÉRATION ══════════════
+  ban: {
+    category: 'Modération',
+    description: 'Bannir un membre',
+    usage: '!ban @membre [raison]',
+    permissions: ['BanMembers'],
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      const raison = args.slice(1).join(' ') || 'Aucune raison';
+      await member.ban({ reason: raison, deleteMessageDays: 1 });
+      message.reply({ embeds: [embed('🔨 Banni', `**${member.user.tag}** a été banni.\n📝 Raison: ${raison}`, COLORS.mod)] });
+    }
+  },
+
+  kick: {
+    category: 'Modération',
+    description: 'Expulser un membre',
+    usage: '!kick @membre [raison]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.KickMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      const raison = args.slice(1).join(' ') || 'Aucune raison';
+      await member.kick(raison);
+      message.reply({ embeds: [embed('👢 Expulsé', `**${member.user.tag}** a été expulsé.\n📝 Raison: ${raison}`, COLORS.mod)] });
+    }
+  },
+
+  mute: {
+    category: 'Modération',
+    description: 'Rendre muet un membre (timeout)',
+    usage: '!mute @membre [durée] [raison]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      const duration = parseDuration(args[1]) || ms('10m');
+      const raison = args.slice(2).join(' ') || 'Aucune raison';
+      await member.timeout(duration, raison);
+      message.reply({ embeds: [embed('🔇 Muté', `**${member.user.tag}** a été muté pendant **${formatDuration(duration)}**.\n📝 Raison: ${raison}`, COLORS.mod)] });
+    }
+  },
+
+  unmute: {
+    category: 'Modération',
+    description: 'Retirer le mute d\'un membre',
+    usage: '!unmute @membre',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      await member.timeout(null);
+      message.reply({ embeds: [successEmbed(`**${member.user.tag}** n'est plus muté.`)] });
+    }
+  },
+
+  warn: {
+    category: 'Modération',
+    description: 'Avertir un membre',
+    usage: '!warn @membre [raison]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      const raison = args.slice(1).join(' ') || 'Aucune raison';
+      const key = `warns_${message.guild.id}_${member.id}`;
+      const warns = (await db.get(key)) || [];
+      warns.push({ raison, date: Date.now(), par: message.author.id });
+      await db.set(key, warns);
+      message.reply({ embeds: [embed('⚠️ Avertissement', `**${member.user.tag}** a reçu un avertissement.\n📝 Raison: ${raison}\n📊 Total: **${warns.length}** warn(s)`, COLORS.warning)] });
+    }
+  },
+
+  warns: {
+    category: 'Modération',
+    description: 'Voir les avertissements d\'un membre',
+    usage: '!warns @membre',
+    async execute(message, args) {
+      const member = message.mentions.members.first() || message.member;
+      const warns = (await db.get(`warns_${message.guild.id}_${member.id}`)) || [];
+      if (!warns.length) return message.reply({ embeds: [successEmbed(`**${member.user.tag}** n'a aucun avertissement.`)] });
+      const list = warns.map((w, i) => `**${i+1}.** ${w.raison} — <t:${Math.floor(w.date/1000)}:R>`).join('\n');
+      message.reply({ embeds: [embed(`⚠️ Warns de ${member.user.tag}`, list, COLORS.warning)] });
+    }
+  },
+
+  clearwarns: {
+    category: 'Modération',
+    description: 'Effacer les warns d\'un membre',
+    usage: '!clearwarns @membre',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      await db.delete(`warns_${message.guild.id}_${member.id}`);
+      message.reply({ embeds: [successEmbed(`Les warns de **${member.user.tag}** ont été effacés.`)] });
+    }
+  },
+
+  purge: {
+    category: 'Modération',
+    description: 'Supprimer des messages en masse',
+    usage: '!purge [nombre] [@membre]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const amount = parseInt(args[0]);
+      if (isNaN(amount) || amount < 1 || amount > 100) return message.reply({ embeds: [errorEmbed('Nombre entre 1 et 100.')] });
+      const target = message.mentions.users.first();
+      let messages = await message.channel.messages.fetch({ limit: 100 });
+      if (target) messages = messages.filter(m => m.author.id === target.id);
+      const toDelete = [...messages.values()].slice(0, amount);
+      await message.channel.bulkDelete(toDelete, true);
+      const m = await message.channel.send({ embeds: [successEmbed(`**${toDelete.length}** messages supprimés.`)] });
+      setTimeout(() => m.delete().catch(() => {}), 3000);
+    }
+  },
+
+  slowmode: {
+    category: 'Modération',
+    description: 'Activer le mode lent sur un salon',
+    usage: '!slowmode [secondes]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const seconds = parseInt(args[0]) || 0;
+      await message.channel.setRateLimitPerUser(seconds);
+      message.reply({ embeds: [successEmbed(seconds === 0 ? 'Mode lent désactivé.' : `Mode lent réglé à **${seconds}s**.`)] });
+    }
+  },
+
+  lock: {
+    category: 'Modération',
+    description: 'Verrouiller un salon',
+    async execute(message) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
+      message.reply({ embeds: [embed('🔒 Salon verrouillé', 'Personne ne peut plus envoyer de messages.', COLORS.mod)] });
+    }
+  },
+
+  unlock: {
+    category: 'Modération',
+    description: 'Déverrouiller un salon',
+    async execute(message) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: null });
+      message.reply({ embeds: [embed('🔓 Salon déverrouillé', 'Les membres peuvent à nouveau envoyer des messages.', COLORS.success)] });
+    }
+  },
+
+  addrole: {
+    category: 'Modération',
+    description: 'Ajouter un rôle à un membre',
+    usage: '!addrole @membre @rôle',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      const role = message.mentions.roles.first();
+      if (!member || !role) return message.reply({ embeds: [errorEmbed('Mentionnez un membre et un rôle.')] });
+      await member.roles.add(role);
+      message.reply({ embeds: [successEmbed(`Rôle **${role.name}** ajouté à **${member.user.tag}**.`)] });
+    }
+  },
+
+  removerole: {
+    category: 'Modération',
+    description: 'Retirer un rôle à un membre',
+    usage: '!removerole @membre @rôle',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      const role = message.mentions.roles.first();
+      if (!member || !role) return message.reply({ embeds: [errorEmbed('Mentionnez un membre et un rôle.')] });
+      await member.roles.remove(role);
+      message.reply({ embeds: [successEmbed(`Rôle **${role.name}** retiré de **${member.user.tag}**.`)] });
+    }
+  },
+
+  nickname: {
+    category: 'Modération',
+    description: 'Changer le pseudo d\'un membre',
+    usage: '!nickname @membre [pseudo]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mentionnez un membre.')] });
+      const nick = args.slice(1).join(' ') || null;
+      await member.setNickname(nick);
+      message.reply({ embeds: [successEmbed(`Pseudo de **${member.user.tag}** changé en **${nick || 'réinitialisé'}**.`)] });
+    }
+  },
+
+  unban: {
+    category: 'Modération',
+    description: 'Débannir un utilisateur',
+    usage: '!unban [ID]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      if (!args[0]) return message.reply({ embeds: [errorEmbed('Fournissez un ID utilisateur.')] });
+      try {
+        await message.guild.members.unban(args[0]);
+        message.reply({ embeds: [successEmbed(`Utilisateur \`${args[0]}\` débanni.`)] });
+      } catch {
+        message.reply({ embeds: [errorEmbed('Impossible de débannir cet utilisateur.')] });
+      }
+    }
+  },
+
+  banlist: {
+    category: 'Modération',
+    description: 'Liste des bannis',
+    async execute(message) {
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const bans = await message.guild.bans.fetch();
+      if (!bans.size) return message.reply({ embeds: [embed('📋 Bannis', 'Aucun banni.', COLORS.info)] });
+      const list = bans.map(b => `\`${b.user.tag}\` — ${b.reason || 'Aucune raison'}`).slice(0, 20).join('\n');
+      message.reply({ embeds: [embed(`📋 Bannis (${bans.size})`, list, COLORS.mod)] });
+    }
+  },
+
+  // ══════════════ 📊 XP & NIVEAUX (Arcane) ══════════════
+  rank: {
+    category: 'Niveaux',
+    description: 'Voir votre niveau et XP',
+    usage: '!rank [@membre]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+      const data = await getXP(user.id, message.guild.id);
+      const xpNeeded = data.level * 100 + 100;
+      const bar = '█'.repeat(Math.floor((data.xp / xpNeeded) * 10)) + '░'.repeat(10 - Math.floor((data.xp / xpNeeded) * 10));
+      const e = new EmbedBuilder()
+        .setTitle(`⭐ Rang de ${user.username}`)
+        .setColor(COLORS.xp)
+        .setThumbnail(user.displayAvatarURL())
+        .addFields(
+          { name: '🏆 Niveau', value: `${data.level}`, inline: true },
+          { name: '✨ XP', value: `${data.xp} / ${xpNeeded}`, inline: true },
+          { name: '📊 Barre', value: `[${bar}]`, inline: false },
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  leaderboard: {
+    category: 'Niveaux',
+    description: 'Classement XP du serveur',
+    async execute(message) {
+      const allData = await db.all();
+      const guildData = allData
+        .filter(e => e.id.startsWith(`xp_${message.guild.id}_`))
+        .map(e => ({ userId: e.id.split('_')[2], ...e.value }))
+        .sort((a, b) => b.level - a.level || b.xp - a.xp)
+        .slice(0, 10);
+      if (!guildData.length) return message.reply({ embeds: [embed('🏆 Classement', 'Aucune donnée.', COLORS.xp)] });
+      const medals = ['🥇', '🥈', '🥉'];
+      const list = guildData.map((d, i) => {
+        const user = client.users.cache.get(d.userId);
+        return `${medals[i] || `**${i+1}.**`} ${user ? user.tag : `<@${d.userId}>`} — Niv. **${d.level}** (${d.xp} XP)`;
+      }).join('\n');
+      message.reply({ embeds: [embed('🏆 Classement XP', list, COLORS.xp)] });
+    }
+  },
+
+  setxp: {
+    category: 'Niveaux',
+    description: 'Définir l\'XP d\'un membre (Admin)',
+    usage: '!setxp @membre [xp]',
+    async execute(message, args) {
+      if (message.author.id !== OWNER_ID && !message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      const xp = parseInt(args[1]);
+      if (!member || isNaN(xp)) return message.reply({ embeds: [errorEmbed('Usage: !setxp @membre [xp]')] });
+      const key = `xp_${message.guild.id}_${member.id}`;
+      const data = (await db.get(key)) || { xp: 0, level: 0 };
+      data.xp = xp;
+      await db.set(key, data);
+      message.reply({ embeds: [successEmbed(`XP de **${member.user.tag}** réglé à **${xp}**.`)] });
+    }
+  },
+
+  givexp: {
+    category: 'Niveaux',
+    description: 'Donner de l\'XP à un membre (Admin)',
+    usage: '!givexp @membre [montant]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const member = message.mentions.members.first();
+      const amount = parseInt(args[1]);
+      if (!member || isNaN(amount)) return message.reply({ embeds: [errorEmbed('Usage: !givexp @membre [montant]')] });
+      const result = await addXP(member, amount);
+      message.reply({ embeds: [successEmbed(`**${amount}** XP donnés à **${member.user.tag}**. Niveau: **${result.level}**`)] });
+    }
+  },
+
+  // ══════════════ 🎉 FUN ══════════════
+  '8ball': {
+    category: 'Fun',
+    description: 'Posez une question à la boule magique',
+    usage: '!8ball [question]',
+    async execute(message, args) {
+      const reponses = [
+        '✅ Absolument !', '✅ Certainement oui.', '✅ Sans aucun doute.',
+        '✅ Tout à fait.', '✅ Comme tu peux t\'y fier.',
+        '❓ Difficile à dire.', '❓ Réessaie plus tard.', '❓ Je ne peux pas prédire cela.',
+        '❌ N\'y compte pas.', '❌ Ma réponse est non.', '❌ Mes sources disent non.', '❌ Très douteux.'
+      ];
+      const rep = reponses[Math.floor(Math.random() * reponses.length)];
+      message.reply({ embeds: [embed('🎱 Boule Magique', `**Question:** ${args.join(' ') || '???'}\n**Réponse:** ${rep}`, COLORS.primary)] });
+    }
+  },
+
+  dice: {
+    category: 'Fun',
+    description: 'Lancer un dé',
+    usage: '!dice [faces]',
+    async execute(message, args) {
+      const faces = parseInt(args[0]) || 6;
+      if (faces < 2 || faces > 1000) return message.reply({ embeds: [errorEmbed('Nombre de faces entre 2 et 1000.')] });
+      const result = Math.floor(Math.random() * faces) + 1;
+      message.reply({ embeds: [embed('🎲 Dé', `Vous avez lancé un d**${faces}** et obtenez : **${result}**`, COLORS.primary)] });
+    }
+  },
+
+  coinflip: {
+    category: 'Fun',
+    description: 'Pile ou face',
+    async execute(message) {
+      const result = Math.random() < 0.5 ? '🪙 Pile' : '🪙 Face';
+      message.reply({ embeds: [embed('🪙 Pile ou Face', `Résultat : **${result}**`, COLORS.primary)] });
+    }
+  },
+
+  rps: {
+    category: 'Fun',
+    description: 'Pierre, Feuille, Ciseaux',
+    usage: '!rps [pierre/feuille/ciseaux]',
+    async execute(message, args) {
+      const choices = ['pierre', 'feuille', 'ciseaux'];
+      const emojis = { pierre: '🪨', feuille: '📄', ciseaux: '✂️' };
+      const choice = args[0]?.toLowerCase();
+      if (!choices.includes(choice)) return message.reply({ embeds: [errorEmbed('Choisissez: pierre, feuille ou ciseaux.')] });
       const bot = choices[Math.floor(Math.random() * 3)];
-      const user = i.options.getString("choice");
-      const win = (user === "rock" && bot === "scissors") || (user === "paper" && bot === "rock") || (user === "scissors" && bot === "paper");
-      const result = user === bot ? "It's a **tie**! 🤝" : win ? "You **win**! 🎉" : "You **lose**! 😢";
-      await i.reply({ embeds: [embed("✂️ Rock Paper Scissors", `You: **${user}** | Bot: **${bot}**\n${result}`, win ? COLORS.green : COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("meme").setDescription("Get a random meme category fact"),
-    async execute(i) {
-      const memes = ["Why do programmers prefer dark mode? Because light attracts bugs! 🐛", "A SQL query walks into a bar, walks up to two tables and asks… Can I join you? 😂", "There are 10 types of people: those who understand binary and those who don't.", "Git commit -m 'Fixed everything' — famous last words 💀", "It works on my machine! — Every developer ever 🤷"];
-      await i.reply({ embeds: [embed("😂 Meme", memes[Math.floor(Math.random() * memes.length)], COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("hug").setDescription("Hug someone").addUserOption(o => o.setName("user").setDescription("Who to hug").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.reply({ embeds: [embed("🤗 Hug!", `**${i.user.username}** hugged **${user.username}**! 💕`, COLORS.pink)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("slap").setDescription("Slap someone").addUserOption(o => o.setName("user").setDescription("Who to slap").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.reply({ embeds: [embed("👋 Slap!", `**${i.user.username}** slapped **${user.username}**! 💥`, COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("quote").setDescription("Get a random motivational quote"),
-    async execute(i) {
-      const quotes = ["The only way to do great work is to love what you do. – Steve Jobs", "In the middle of difficulty lies opportunity. – Albert Einstein", "It does not matter how slowly you go as long as you do not stop. – Confucius", "Life is what happens when you're busy making other plans. – John Lennon", "The future belongs to those who believe in the beauty of their dreams. – Eleanor Roosevelt"];
-      await i.reply({ embeds: [embed("💬 Quote of the Moment", quotes[Math.floor(Math.random() * quotes.length)], COLORS.cyan)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("randomnumber").setDescription("Generate a random number").addIntegerOption(o => o.setName("min").setDescription("Minimum").setRequired(true)).addIntegerOption(o => o.setName("max").setDescription("Maximum").setRequired(true)),
-    async execute(i) {
-      const min = i.options.getInteger("min");
-      const max = i.options.getInteger("max");
-      const num = Math.floor(Math.random() * (max - min + 1)) + min;
-      await i.reply({ embeds: [embed("🎰 Random Number", `Your number between **${min}** and **${max}** is: **${num}**`, COLORS.purple)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("choose").setDescription("Choose between options").addStringOption(o => o.setName("options").setDescription("Options separated by commas").setRequired(true)),
-    async execute(i) {
-      const opts = i.options.getString("options").split(",").map(s => s.trim());
-      const chosen = opts[Math.floor(Math.random() * opts.length)];
-      await i.reply({ embeds: [embed("🤔 Decision Made", `From your options, I choose: **${chosen}**`, COLORS.gold)] });
-    },
+      let result = '🤝 Égalité !';
+      if ((choice === 'pierre' && bot === 'ciseaux') || (choice === 'feuille' && bot === 'pierre') || (choice === 'ciseaux' && bot === 'feuille'))
+        result = '🏆 Vous gagnez !';
+      else if (choice !== bot)
+        result = '😔 Vous perdez !';
+      message.reply({ embeds: [embed('🎮 Pierre Feuille Ciseaux', `Vous: ${emojis[choice]} vs Moi: ${emojis[bot]}\n\n**${result}**`, COLORS.primary)] });
+    }
   },
 
-  // ── UTILITY ───────────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency"),
-    async execute(i) {
-      const sent = await i.reply({ embeds: [embed("🏓 Pong!", "Calculating...", COLORS.blue)], fetchReply: true });
-      await i.editReply({ embeds: [embed("🏓 Pong!", `**Latency:** ${sent.createdTimestamp - i.createdTimestamp}ms\n**API Latency:** ${Math.round(client.ws.ping)}ms`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("uptime").setDescription("Show bot uptime"),
-    async execute(i) {
-      const ms = client.uptime;
-      const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
-      await i.reply({ embeds: [embed("⏱️ Uptime", `**${h}h ${m}m ${s}s**`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("botinfo").setDescription("Show bot information"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🤖 Bot Info", `**Name:** ${client.user.username}\n**Servers:** ${client.guilds.cache.size}\n**Commands:** 100\n**Library:** discord.js v14`, COLORS.blue).setThumbnail(client.user.displayAvatarURL())] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("say").setDescription("Make the bot say something").addStringOption(o => o.setName("message").setDescription("Message to say").setRequired(true)),
-    async execute(i) {
-      const msg = i.options.getString("message");
-      await i.channel.send(msg);
-      await i.reply({ content: "✅ Message sent!", ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("embed").setDescription("Send a custom embed").addStringOption(o => o.setName("title").setDescription("Embed title").setRequired(true)).addStringOption(o => o.setName("description").setDescription("Embed description").setRequired(true)),
-    async execute(i) {
-      const title = i.options.getString("title");
-      const desc = i.options.getString("description");
-      await i.channel.send({ embeds: [embed(title, desc, COLORS.blue)] });
-      await i.reply({ content: "✅ Embed sent!", ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("announce").setDescription("Send an announcement embed").setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages).addStringOption(o => o.setName("message").setDescription("Announcement content").setRequired(true)),
-    async execute(i) {
-      const msg = i.options.getString("message");
-      await i.channel.send({ embeds: [embed("📢 Announcement", msg, COLORS.gold)] });
-      await i.reply({ content: "✅ Announcement sent!", ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("poll").setDescription("Create a poll").addStringOption(o => o.setName("question").setDescription("Poll question").setRequired(true)),
-    async execute(i) {
-      const q = i.options.getString("question");
-      const msg = await i.channel.send({ embeds: [embed("📊 Poll", q, COLORS.cyan)] });
-      await msg.react("👍"); await msg.react("👎");
-      await i.reply({ content: "✅ Poll created!", ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("reminder").setDescription("Set a reminder").addStringOption(o => o.setName("message").setDescription("Reminder message").setRequired(true)).addIntegerOption(o => o.setName("seconds").setDescription("Remind in X seconds").setRequired(true)),
-    async execute(i) {
-      const msg = i.options.getString("message"); const secs = i.options.getInteger("seconds");
-      await i.reply({ embeds: [embed("⏰ Reminder Set", `I'll remind you in **${secs}s**: ${msg}`, COLORS.blue)] });
-      setTimeout(async () => { try { await i.user.send({ embeds: [embed("⏰ Reminder!", msg, COLORS.gold)] }); } catch {} }, secs * 1000);
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("timestamp").setDescription("Get the current Unix timestamp"),
-    async execute(i) {
-      const ts = Math.floor(Date.now() / 1000);
-      await i.reply({ embeds: [embed("🕐 Timestamp", `**Unix:** \`${ts}\`\n**Discord format:** <t:${ts}:F>`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("calculator").setDescription("Simple calculator").addStringOption(o => o.setName("expression").setDescription("Math expression (e.g. 2+2*5)").setRequired(true)),
-    async execute(i) {
-      const expr = i.options.getString("expression").replace(/[^0-9+\-*/.() ]/g, "");
-      let result;
-      try { result = Function(`"use strict"; return (${expr})`)(); } catch { result = "Invalid expression"; }
-      await i.reply({ embeds: [embed("🧮 Calculator", `**Expression:** \`${expr}\`\n**Result:** \`${result}\``, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("base64encode").setDescription("Encode text to Base64").addStringOption(o => o.setName("text").setDescription("Text to encode").setRequired(true)),
-    async execute(i) {
-      const encoded = Buffer.from(i.options.getString("text")).toString("base64");
-      await i.reply({ embeds: [embed("🔐 Base64 Encoded", `\`${encoded}\``, COLORS.cyan)] });
-    },
+  joke: {
+    category: 'Fun',
+    description: 'Blague aléatoire',
+    async execute(message) {
+      const jokes = [
+        ['Pourquoi les plongeurs plongent-ils toujours en arrière et jamais en avant ?', 'Parce que sinon ils tomberaient dans le bateau !'],
+        ['Qu\'est-ce qu\'un canif ?', 'Un petit fien.'],
+        ['Comment appelle-t-on un chat tombé dans un pot de peinture ?', 'Un chat-peint.'],
+        ['Pourquoi les toilettes sont toujours blanches ?', 'Pour que le proprio se sente comme un roi.'],
+        ['Qu\'est-ce qu\'un crocodile qui surveille les autres crocodiles ?', 'Un croco-dile.'],
+      ];
+      const [setup, punchline] = jokes[Math.floor(Math.random() * jokes.length)];
+      message.reply({ embeds: [embed('😂 Blague', `${setup}\n\n||${punchline}||`, COLORS.primary)] });
+    }
   },
 
-  // ── TICKET MANAGEMENT ─────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("ticket").setDescription("Open a general support ticket").addStringOption(o => o.setName("reason").setDescription("Reason for ticket").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🎫 Support Ticket", `**Reason:** ${i.options.getString("reason")}\n\nYour ticket has been submitted. Staff will assist you shortly!`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("closeticket").setDescription("Close the current ticket").setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🔒 Ticket Closed", "This ticket has been closed. The channel will be archived.", COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("adduser").setDescription("Add a user to the current ticket").addUserOption(o => o.setName("user").setDescription("User to add").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.channel.permissionOverwrites.create(user, { ViewChannel: true, SendMessages: true });
-      await i.reply({ embeds: [embed("➕ User Added", `**${user.tag}** has been added to this ticket.`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("removeuser").setDescription("Remove a user from the current ticket").addUserOption(o => o.setName("user").setDescription("User to remove").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.channel.permissionOverwrites.delete(user);
-      await i.reply({ embeds: [embed("➖ User Removed", `**${user.tag}** has been removed from this ticket.`, COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("claimticket").setDescription("Claim this ticket as your own (staff)").setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-    async execute(i) {
-      await i.reply({ embeds: [embed("✋ Ticket Claimed", `This ticket has been claimed by **${i.user.tag}**.`, COLORS.cyan)] });
-    },
+  meme: {
+    category: 'Fun',
+    description: 'Meme aléatoire',
+    async execute(message) {
+      try {
+        const fetch = require('node-fetch');
+        const res = await fetch('https://meme-api.com/gimme');
+        const data = await res.json();
+        const e = new EmbedBuilder().setTitle(data.title).setImage(data.url).setColor(COLORS.primary).setFooter({ text: `👍 ${data.ups} | r/${data.subreddit}` });
+        message.reply({ embeds: [e] });
+      } catch {
+        message.reply({ embeds: [errorEmbed('Impossible de charger un mème.')] });
+      }
+    }
   },
 
-  // ── GIVEAWAY ──────────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("giveaway").setDescription("Start a giveaway").setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages).addStringOption(o => o.setName("prize").setDescription("Giveaway prize").setRequired(true)).addIntegerOption(o => o.setName("minutes").setDescription("Duration in minutes").setRequired(true)),
-    async execute(i) {
-      const prize = i.options.getString("prize"); const mins = i.options.getInteger("minutes");
-      const end = Math.floor((Date.now() + mins * 60000) / 1000);
-      const msg = await i.channel.send({ embeds: [embed("🎉 GIVEAWAY!", `**Prize:** ${prize}\n**Ends:** <t:${end}:R>\nReact with 🎉 to enter!`, COLORS.gold)] });
-      await msg.react("🎉");
-      await i.reply({ content: "✅ Giveaway started!", ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("reroll").setDescription("Re-roll a giveaway winner"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🎉 Giveaway Re-rolled", "A new winner has been selected! Congratulations! 🏆", COLORS.gold)] });
-    },
+  choose: {
+    category: 'Fun',
+    description: 'Choisir entre plusieurs options',
+    usage: '!choose [option1] [option2] ...',
+    async execute(message, args) {
+      if (args.length < 2) return message.reply({ embeds: [errorEmbed('Donnez au moins 2 options séparées par des espaces.')] });
+      const choix = args[Math.floor(Math.random() * args.length)];
+      message.reply({ embeds: [embed('🎯 Choix', `J'ai choisi : **${choix}**`, COLORS.primary)] });
+    }
   },
 
-  // ── ECONOMY (demo) ────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("balance").setDescription("Check your balance"),
-    async execute(i) {
-      const bal = Math.floor(Math.random() * 10000);
-      await i.reply({ embeds: [embed("💰 Balance", `**${i.user.username}'s** balance: **$${bal.toLocaleString()}**`, COLORS.gold)] });
-    },
+  poll: {
+    category: 'Fun',
+    description: 'Créer un sondage',
+    usage: '!poll [question]',
+    async execute(message, args) {
+      const question = args.join(' ');
+      if (!question) return message.reply({ embeds: [errorEmbed('Fournissez une question.')] });
+      const e = embed('📊 Sondage', question, COLORS.primary);
+      e.setFooter({ text: `Sondage créé par ${message.author.tag}` });
+      const msg = await message.channel.send({ embeds: [e] });
+      await msg.react('👍');
+      await msg.react('👎');
+      await msg.react('🤷');
+      message.delete().catch(() => {});
+    }
   },
-  {
-    data: new SlashCommandBuilder().setName("daily").setDescription("Claim your daily reward"),
-    async execute(i) {
-      const reward = Math.floor(Math.random() * 500) + 100;
-      await i.reply({ embeds: [embed("📅 Daily Reward", `You claimed **$${reward}** as your daily reward! Come back tomorrow!`, COLORS.green)] });
-    },
+
+  trivia: {
+    category: 'Fun',
+    description: 'Question de culture générale',
+    async execute(message) {
+      try {
+        const fetch = require('node-fetch');
+        const res = await fetch('https://opentdb.com/api.php?amount=1&type=multiple&lang=fr');
+        const data = await res.json();
+        const q = data.results[0];
+        const answers = [...q.incorrect_answers, q.correct_answer].sort(() => Math.random() - 0.5);
+        const letters = ['🇦', '🇧', '🇨', '🇩'];
+        const e = embed(`❓ ${q.category}`, `**${q.question.replace(/&amp;/g, '&').replace(/&quot;/g, '"')}**\n\n${answers.map((a, i) => `${letters[i]} ${a}`).join('\n')}`, COLORS.primary);
+        const msg = await message.reply({ embeds: [e] });
+        answers.forEach((_, i) => msg.react(letters[i]));
+      } catch {
+        message.reply({ embeds: [errorEmbed('Impossible de charger une question.')] });
+      }
+    }
   },
-  {
-    data: new SlashCommandBuilder().setName("work").setDescription("Work to earn coins"),
-    async execute(i) {
-      const jobs = ["programmer", "chef", "doctor", "streamer", "artist"];
+
+  reverse: {
+    category: 'Fun',
+    description: 'Inverser un texte',
+    usage: '!reverse [texte]',
+    async execute(message, args) {
+      const text = args.join(' ');
+      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un texte.')] });
+      message.reply({ embeds: [embed('🔄 Texte inversé', text.split('').reverse().join(''), COLORS.primary)] });
+    }
+  },
+
+  mock: {
+    category: 'Fun',
+    description: 'Moquer un texte',
+    usage: '!mock [texte]',
+    async execute(message, args) {
+      const text = args.join(' ');
+      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un texte.')] });
+      const result = text.split('').map((c, i) => i % 2 ? c.toUpperCase() : c.toLowerCase()).join('');
+      message.reply({ embeds: [embed('🤡 Mock', result, COLORS.primary)] });
+    }
+  },
+
+  ascii: {
+    category: 'Fun',
+    description: 'Texte en emojis lettres',
+    usage: '!ascii [texte]',
+    async execute(message, args) {
+      const text = args.join(' ').toLowerCase().slice(0, 20);
+      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un texte.')] });
+      const result = text.split('').map(c => /[a-z]/.test(c) ? `:regional_indicator_${c}: ` : c === ' ' ? '   ' : c).join('');
+      message.reply(result.slice(0, 2000));
+    }
+  },
+
+  slap: {
+    category: 'Fun',
+    description: 'Gifler quelqu\'un',
+    usage: '!slap @membre',
+    async execute(message, args) {
+      const target = message.mentions.users.first();
+      if (!target) return message.reply({ embeds: [errorEmbed('Mentionnez quelqu\'un.')] });
+      message.reply({ embeds: [embed('👋 Giflé !', `**${message.author.username}** a giflé **${target.username}** ! 😵`, COLORS.primary)] });
+    }
+  },
+
+  hug: {
+    category: 'Fun',
+    description: 'Faire un câlin',
+    usage: '!hug @membre',
+    async execute(message, args) {
+      const target = message.mentions.users.first();
+      if (!target) return message.reply({ embeds: [errorEmbed('Mentionnez quelqu\'un.')] });
+      message.reply({ embeds: [embed('🤗 Câlin !', `**${message.author.username}** fait un câlin à **${target.username}** ! 💕`, COLORS.success)] });
+    }
+  },
+
+  ship: {
+    category: 'Fun',
+    description: 'Compatibilité entre deux personnes',
+    usage: '!ship @membre1 @membre2',
+    async execute(message, args) {
+      const u1 = message.mentions.users.first();
+      const u2 = message.mentions.users.at(1) || message.author;
+      const percent = Math.floor(Math.random() * 101);
+      const hearts = '❤️'.repeat(Math.floor(percent / 10)) + '🖤'.repeat(10 - Math.floor(percent / 10));
+      message.reply({ embeds: [embed('💘 Ship', `**${u1 ? u1.username : '???'}** + **${u2.username}**\n\n${hearts}\n\n**${percent}%** de compatibilité !`, COLORS.error)] });
+    }
+  },
+
+  // ══════════════ 🛠 UTILITAIRES ══════════════
+  embed_cmd: {
+    category: 'Utilitaires',
+    description: 'Créer un embed personnalisé',
+    usage: '!embed [titre] | [description]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const [title, ...descParts] = args.join(' ').split('|');
+      const desc = descParts.join('|').trim();
+      if (!title) return message.reply({ embeds: [errorEmbed('Usage: !embed [titre] | [description]')] });
+      await message.channel.send({ embeds: [embed(title.trim(), desc || '\u200b', COLORS.primary)] });
+      message.delete().catch(() => {});
+    }
+  },
+
+  say: {
+    category: 'Utilitaires',
+    description: 'Faire parler le bot',
+    usage: '!say [message]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const text = args.join(' ');
+      if (!text) return message.reply({ embeds: [errorEmbed('Donnez un message.')] });
+      await message.channel.send(text);
+      message.delete().catch(() => {});
+    }
+  },
+
+  announce: {
+    category: 'Utilitaires',
+    description: 'Faire une annonce',
+    usage: '!announce [message]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const text = args.join(' ');
+      const e = new EmbedBuilder()
+        .setTitle('📢 Annonce')
+        .setDescription(text)
+        .setColor(COLORS.warning)
+        .setFooter({ text: `Par ${message.author.tag}` })
+        .setTimestamp();
+      message.channel.send({ content: '@here', embeds: [e] });
+      message.delete().catch(() => {});
+    }
+  },
+
+  remindme: {
+    category: 'Utilitaires',
+    description: 'Se faire rappeler quelque chose',
+    usage: '!remindme [durée] [rappel]',
+    async execute(message, args) {
+      const duration = parseDuration(args[0]);
+      if (!duration) return message.reply({ embeds: [errorEmbed('Durée invalide. Ex: 10m, 1h, 2d')] });
+      const reminder = args.slice(1).join(' ') || 'Rappel !';
+      message.reply({ embeds: [successEmbed(`⏰ Je vous rappellerai dans **${formatDuration(duration)}** : ${reminder}`)] });
+      setTimeout(() => {
+        message.author.send({ embeds: [embed('⏰ Rappel !', reminder, COLORS.info)] }).catch(() => {
+          message.channel.send({ content: `<@${message.author.id}>`, embeds: [embed('⏰ Rappel !', reminder, COLORS.info)] });
+        });
+      }, duration);
+    }
+  },
+
+  calc: {
+    category: 'Utilitaires',
+    description: 'Calculatrice',
+    usage: '!calc [expression]',
+    async execute(message, args) {
+      const expr = args.join(' ');
+      if (!expr) return message.reply({ embeds: [errorEmbed('Donnez une expression.')] });
+      try {
+        const result = Function('"use strict"; return (' + expr.replace(/[^0-9+\-*/().\s]/g, '') + ')')();
+        message.reply({ embeds: [embed('🧮 Calcul', `**${expr}** = **${result}**`, COLORS.info)] });
+      } catch {
+        message.reply({ embeds: [errorEmbed('Expression invalide.')] });
+      }
+    }
+  },
+
+  channelinfo: {
+    category: 'Utilitaires',
+    description: 'Informations sur le salon actuel',
+    async execute(message) {
+      const c = message.channel;
+      const e = embed(`📋 #${c.name}`, `**ID:** ${c.id}\n**Type:** ${c.type}\n**Créé le:** <t:${Math.floor(c.createdTimestamp / 1000)}:D>\n**Sujet:** ${c.topic || 'Aucun'}`, COLORS.info);
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  roleinfo: {
+    category: 'Utilitaires',
+    description: 'Informations sur un rôle',
+    usage: '!roleinfo @rôle',
+    async execute(message, args) {
+      const role = message.mentions.roles.first();
+      if (!role) return message.reply({ embeds: [errorEmbed('Mentionnez un rôle.')] });
+      const e = new EmbedBuilder()
+        .setTitle(`🎭 ${role.name}`)
+        .setColor(role.color || COLORS.primary)
+        .addFields(
+          { name: '🆔 ID', value: role.id, inline: true },
+          { name: '👥 Membres', value: `${role.members.size}`, inline: true },
+          { name: '📌 Position', value: `${role.position}`, inline: true },
+          { name: '🎨 Couleur', value: role.hexColor, inline: true },
+          { name: '📌 Mentionnable', value: role.mentionable ? 'Oui' : 'Non', inline: true },
+          { name: '👑 Hoisted', value: role.hoist ? 'Oui' : 'Non', inline: true },
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  perms: {
+    category: 'Utilitaires',
+    description: 'Voir les permissions d\'un membre',
+    usage: '!perms [@membre]',
+    async execute(message, args) {
+      const member = message.mentions.members.first() || message.member;
+      const perms = member.permissions.toArray().map(p => `\`${p}\``).join(', ');
+      message.reply({ embeds: [embed(`🔑 Permissions de ${member.user.tag}`, perms || 'Aucune', COLORS.info)] });
+    }
+  },
+
+  timestamp: {
+    category: 'Utilitaires',
+    description: 'Afficher les timestamps Discord',
+    usage: '!timestamp [date]',
+    async execute(message, args) {
+      const date = args.length ? new Date(args.join(' ')) : new Date();
+      const unix = Math.floor(date.getTime() / 1000);
+      if (isNaN(unix)) return message.reply({ embeds: [errorEmbed('Date invalide.')] });
+      const formats = ['t', 'T', 'd', 'D', 'f', 'F', 'R'].map(f => `\`<t:${unix}:${f}>\` → <t:${unix}:${f}>`).join('\n');
+      message.reply({ embeds: [embed('🕐 Timestamps', formats, COLORS.info)] });
+    }
+  },
+
+  // ══════════════ ⚙️ CONFIG (Dyno) ══════════════
+  setprefix: {
+    category: 'Config',
+    description: 'Changer le prefix du bot sur ce serveur',
+    usage: '!setprefix [prefix]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const newPrefix = args[0];
+      if (!newPrefix) return message.reply({ embeds: [errorEmbed('Donnez un prefix.')] });
+      await db.set(`prefix_${message.guild.id}`, newPrefix);
+      message.reply({ embeds: [successEmbed(`Prefix changé en \`${newPrefix}\``)] });
+    }
+  },
+
+  setwelcome: {
+    category: 'Config',
+    description: 'Configurer le message de bienvenue',
+    usage: '!setwelcome #salon [message]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const channel = message.mentions.channels.first();
+      const msg = args.slice(1).join(' ');
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
+      await db.set(`welcome_${message.guild.id}`, { channelId: channel.id, message: msg || 'Bienvenue {user} sur **{server}** ! 🎉' });
+      message.reply({ embeds: [successEmbed(`Message de bienvenue configuré dans <#${channel.id}>.`)] });
+    }
+  },
+
+  setleave: {
+    category: 'Config',
+    description: 'Configurer le message de départ',
+    usage: '!setleave #salon [message]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const channel = message.mentions.channels.first();
+      const msg = args.slice(1).join(' ');
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
+      await db.set(`leave_${message.guild.id}`, { channelId: channel.id, message: msg || '**{user}** a quitté le serveur. 👋' });
+      message.reply({ embeds: [successEmbed(`Message de départ configuré dans <#${channel.id}>.`)] });
+    }
+  },
+
+  setlogs: {
+    category: 'Config',
+    description: 'Configurer le salon de logs',
+    usage: '!setlogs #salon',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const channel = message.mentions.channels.first();
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
+      await db.set(`logs_${message.guild.id}`, channel.id);
+      message.reply({ embeds: [successEmbed(`Salon de logs : <#${channel.id}>`)] });
+    }
+  },
+
+  autorole: {
+    category: 'Config',
+    description: 'Rôle automatique à l\'arrivée',
+    usage: '!autorole @rôle',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const role = message.mentions.roles.first();
+      if (!role) {
+        await db.delete(`autorole_${message.guild.id}`);
+        return message.reply({ embeds: [successEmbed('Auto-rôle désactivé.')] });
+      }
+      await db.set(`autorole_${message.guild.id}`, role.id);
+      message.reply({ embeds: [successEmbed(`Auto-rôle : **${role.name}**`)] });
+    }
+  },
+
+  setlevelup: {
+    category: 'Config',
+    description: 'Salon d\'annonce des montées de niveau',
+    usage: '!setlevelup #salon',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const channel = message.mentions.channels.first();
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mentionnez un salon.')] });
+      await db.set(`levelup_${message.guild.id}`, channel.id);
+      message.reply({ embeds: [successEmbed(`Annonces de niveau dans <#${channel.id}>`)] });
+    }
+  },
+
+  config: {
+    category: 'Config',
+    description: 'Voir la config du serveur',
+    async execute(message) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const g = message.guild.id;
+      const welcome = await db.get(`welcome_${g}`);
+      const leave = await db.get(`leave_${g}`);
+      const logs = await db.get(`logs_${g}`);
+      const autorole = await db.get(`autorole_${g}`);
+      const levelup = await db.get(`levelup_${g}`);
+      const prefix = await db.get(`prefix_${g}`);
+      const e = new EmbedBuilder()
+        .setTitle(`⚙️ Config de ${message.guild.name}`)
+        .setColor(COLORS.info)
+        .addFields(
+          { name: '🔤 Prefix', value: prefix || PREFIX, inline: true },
+          { name: '👋 Bienvenue', value: welcome ? `<#${welcome.channelId}>` : 'Non configuré', inline: true },
+          { name: '🚪 Départ', value: leave ? `<#${leave.channelId}>` : 'Non configuré', inline: true },
+          { name: '📋 Logs', value: logs ? `<#${logs}>` : 'Non configuré', inline: true },
+          { name: '🎭 Auto-rôle', value: autorole ? `<@&${autorole}>` : 'Non configuré', inline: true },
+          { name: '⭐ Level-up', value: levelup ? `<#${levelup}>` : 'Non configuré', inline: true },
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  // ══════════════ 🎵 MUSIQUE BASIQUE ══════════════
+  play: {
+    category: 'Musique',
+    description: 'Jouer de la musique (nom YouTube)',
+    usage: '!play [titre]',
+    async execute(message, args) {
+      if (!message.member.voice.channel) return message.reply({ embeds: [errorEmbed('Rejoignez un salon vocal.')] });
+      const query = args.join(' ');
+      if (!query) return message.reply({ embeds: [errorEmbed('Donnez un titre ou lien YouTube.')] });
+      message.reply({ embeds: [embed('🎵 Musique', `Recherche de **${query}**...\n\n⚠️ Installez \`@distube/distube\` pour la lecture audio.`, COLORS.primary)] });
+    }
+  },
+
+  // ══════════════ 🎰 ECONOMIE ══════════════
+  balance: {
+    category: 'Économie',
+    description: 'Voir votre solde',
+    usage: '!balance [@membre]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+      const coins = (await db.get(`coins_${message.guild.id}_${user.id}`)) || 0;
+      message.reply({ embeds: [embed('💰 Solde', `**${user.username}** possède **${coins.toLocaleString()}** 💎`, COLORS.xp)] });
+    }
+  },
+
+  daily: {
+    category: 'Économie',
+    description: 'Récompense journalière',
+    async execute(message) {
+      const key = `daily_${message.guild.id}_${message.author.id}`;
+      const last = await db.get(key);
+      const now = Date.now();
+      if (last && now - last < 86400000) {
+        const remaining = 86400000 - (now - last);
+        return message.reply({ embeds: [errorEmbed(`Revenez dans **${formatDuration(remaining)}**.`)] });
+      }
+      const amount = Math.floor(Math.random() * 200) + 50;
+      const coinKey = `coins_${message.guild.id}_${message.author.id}`;
+      const current = (await db.get(coinKey)) || 0;
+      await db.set(coinKey, current + amount);
+      await db.set(key, now);
+      message.reply({ embeds: [embed('🎁 Daily', `Vous avez reçu **${amount}** 💎 !\nSolde: **${current + amount}** 💎`, COLORS.success)] });
+    }
+  },
+
+  weekly: {
+    category: 'Économie',
+    description: 'Récompense hebdomadaire',
+    async execute(message) {
+      const key = `weekly_${message.guild.id}_${message.author.id}`;
+      const last = await db.get(key);
+      const now = Date.now();
+      if (last && now - last < 604800000) {
+        const remaining = 604800000 - (now - last);
+        return message.reply({ embeds: [errorEmbed(`Revenez dans **${formatDuration(remaining)}**.`)] });
+      }
+      const amount = Math.floor(Math.random() * 1000) + 500;
+      const coinKey = `coins_${message.guild.id}_${message.author.id}`;
+      const current = (await db.get(coinKey)) || 0;
+      await db.set(coinKey, current + amount);
+      await db.set(key, now);
+      message.reply({ embeds: [embed('🗓 Weekly', `Vous avez reçu **${amount}** 💎 !\nSolde: **${current + amount}** 💎`, COLORS.success)] });
+    }
+  },
+
+  work: {
+    category: 'Économie',
+    description: 'Travailler pour gagner des coins',
+    async execute(message) {
+      const key = `work_${message.guild.id}_${message.author.id}`;
+      const last = await db.get(key);
+      const now = Date.now();
+      if (last && now - last < 3600000) {
+        const remaining = 3600000 - (now - last);
+        return message.reply({ embeds: [errorEmbed(`Revenez dans **${formatDuration(remaining)}**.`)] });
+      }
+      const jobs = ['🍕 Pizzaïolo', '💻 Développeur', '🎨 Artiste', '🚗 Chauffeur', '🏥 Docteur'];
       const job = jobs[Math.floor(Math.random() * jobs.length)];
-      const earned = Math.floor(Math.random() * 300) + 50;
-      await i.reply({ embeds: [embed("💼 Work", `You worked as a **${job}** and earned **$${earned}**!`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("shop").setDescription("View the server shop"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🛍️ Shop", "**1.** VIP Role — $5,000\n**2.** Name Color — $2,500\n**3.** Custom Emoji — $10,000\n**4.** Shoutout — $1,000\n**5.** Premium Badge — $7,500", COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("leaderboard").setDescription("View the top economy leaderboard"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🏆 Leaderboard", "**1.** 👑 User#0001 — $98,500\n**2.** ⭐ User#0002 — $72,300\n**3.** 💎 User#0003 — $55,100\n**4.** 🥈 User#0004 — $41,200\n**5.** 🥉 User#0005 — $30,800", COLORS.gold)] });
-    },
+      const amount = Math.floor(Math.random() * 100) + 20;
+      const coinKey = `coins_${message.guild.id}_${message.author.id}`;
+      const current = (await db.get(coinKey)) || 0;
+      await db.set(coinKey, current + amount);
+      await db.set(key, now);
+      message.reply({ embeds: [embed('💼 Travail', `Vous travaillez comme **${job}** et gagnez **${amount}** 💎 !`, COLORS.success)] });
+    }
   },
 
-  // ── LEVELLING (demo) ──────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("rank").setDescription("Check your rank / XP").addUserOption(o => o.setName("user").setDescription("Target user")),
-    async execute(i) {
-      const user = i.options.getUser("user") ?? i.user;
-      const level = Math.floor(Math.random() * 50) + 1;
-      const xp = Math.floor(Math.random() * 5000);
-      await i.reply({ embeds: [embed(`📊 Rank — ${user.username}`, `**Level:** ${level}\n**XP:** ${xp.toLocaleString()}\n**Rank:** #${Math.floor(Math.random() * 100) + 1}`, COLORS.purple)] });
-    },
+  pay: {
+    category: 'Économie',
+    description: 'Envoyer des coins à un membre',
+    usage: '!pay @membre [montant]',
+    async execute(message, args) {
+      const target = message.mentions.users.first();
+      const amount = parseInt(args[1]);
+      if (!target || isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Usage: !pay @membre [montant]')] });
+      const fromKey = `coins_${message.guild.id}_${message.author.id}`;
+      const toKey = `coins_${message.guild.id}_${target.id}`;
+      const from = (await db.get(fromKey)) || 0;
+      if (from < amount) return message.reply({ embeds: [errorEmbed('Solde insuffisant.')] });
+      await db.set(fromKey, from - amount);
+      const to = (await db.get(toKey)) || 0;
+      await db.set(toKey, to + amount);
+      message.reply({ embeds: [successEmbed(`Vous avez envoyé **${amount}** 💎 à **${target.username}**.`)] });
+    }
   },
 
-  // ── MUSIC (stub) ──────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("play").setDescription("Play a song").addStringOption(o => o.setName("query").setDescription("Song name or URL").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🎵 Now Playing", `Loading: **${i.options.getString("query")}**\nJoin a voice channel first!`, COLORS.cyan)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("skip").setDescription("Skip the current song"),
-    async execute(i) { await i.reply({ embeds: [embed("⏭️ Skipped", "Skipped to the next track!", COLORS.blue)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("stop").setDescription("Stop music and clear queue"),
-    async execute(i) { await i.reply({ embeds: [embed("⏹️ Stopped", "Music stopped and queue cleared.", COLORS.red)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("queue").setDescription("Show the music queue"),
-    async execute(i) { await i.reply({ embeds: [embed("📋 Queue", "The queue is currently empty. Use `/play` to add songs!", COLORS.blue)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("volume").setDescription("Set the music volume").addIntegerOption(o => o.setName("level").setDescription("Volume 0–100").setRequired(true).setMinValue(0).setMaxValue(100)),
-    async execute(i) { await i.reply({ embeds: [embed("🔊 Volume", `Volume set to **${i.options.getInteger("level")}%**`, COLORS.blue)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("pause").setDescription("Pause the current track"),
-    async execute(i) { await i.reply({ embeds: [embed("⏸️ Paused", "Playback paused.", COLORS.orange)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("resume").setDescription("Resume the paused track"),
-    async execute(i) { await i.reply({ embeds: [embed("▶️ Resumed", "Playback resumed!", COLORS.green)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("shuffle").setDescription("Shuffle the queue"),
-    async execute(i) { await i.reply({ embeds: [embed("🔀 Shuffled", "Queue has been shuffled!", COLORS.purple)] }); },
-  },
-  {
-    data: new SlashCommandBuilder().setName("loop").setDescription("Toggle loop mode").addStringOption(o => o.setName("mode").setDescription("Loop mode").setRequired(true).addChoices({ name: "Off", value: "off" }, { name: "Track", value: "track" }, { name: "Queue", value: "queue" })),
-    async execute(i) { await i.reply({ embeds: [embed("🔁 Loop", `Loop mode set to **${i.options.getString("mode")}**`, COLORS.blue)] }); },
+  slots: {
+    category: 'Économie',
+    description: 'Machine à sous',
+    usage: '!slots [mise]',
+    async execute(message, args) {
+      const bet = parseInt(args[0]) || 10;
+      const coinKey = `coins_${message.guild.id}_${message.author.id}`;
+      const current = (await db.get(coinKey)) || 0;
+      if (current < bet) return message.reply({ embeds: [errorEmbed('Solde insuffisant.')] });
+      const symbols = ['🍒', '🍋', '🍊', '🍇', '⭐', '💎'];
+      const reels = Array.from({ length: 3 }, () => symbols[Math.floor(Math.random() * symbols.length)]);
+      const display = `| ${reels.join(' | ')} |`;
+      let win = 0;
+      if (reels[0] === reels[1] && reels[1] === reels[2]) {
+        win = reels[0] === '💎' ? bet * 10 : bet * 5;
+      } else if (reels[0] === reels[1] || reels[1] === reels[2]) {
+        win = bet * 2;
+      }
+      const net = win - bet;
+      await db.set(coinKey, current + net);
+      message.reply({ embeds: [embed('🎰 Slots', `${display}\n\n${win > 0 ? `🏆 Gagné **${win}** 💎 !` : `😔 Perdu **${bet}** 💎.`}\nSolde: **${current + net}** 💎`, win > 0 ? COLORS.success : COLORS.error)] });
+    }
   },
 
-  // ── ROLE MANAGEMENT ───────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("giverole").setDescription("Give a role to a user").setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles).addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)).addRoleOption(o => o.setName("role").setDescription("Role to give").setRequired(true)),
-    async execute(i) {
-      const member = i.guild.members.cache.get(i.options.getUser("user").id);
-      const role = i.options.getRole("role");
-      await member?.roles.add(role);
-      await i.reply({ embeds: [embed("✅ Role Given", `**${role.name}** given to **${member?.user.tag}**`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("removerole").setDescription("Remove a role from a user").setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles).addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)).addRoleOption(o => o.setName("role").setDescription("Role to remove").setRequired(true)),
-    async execute(i) {
-      const member = i.guild.members.cache.get(i.options.getUser("user").id);
-      const role = i.options.getRole("role");
-      await member?.roles.remove(role);
-      await i.reply({ embeds: [embed("❌ Role Removed", `**${role.name}** removed from **${member?.user.tag}**`, COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("createrole").setDescription("Create a new role").setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles).addStringOption(o => o.setName("name").setDescription("Role name").setRequired(true)).addStringOption(o => o.setName("color").setDescription("Hex color e.g. #FF0000")),
-    async execute(i) {
-      const name = i.options.getString("name"); const color = i.options.getString("color") ?? "#99AAB5";
-      const role = await i.guild.roles.create({ name, color });
-      await i.reply({ embeds: [embed("✅ Role Created", `Role **${role.name}** created!`, role.color)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("deleterole").setDescription("Delete a role").setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles).addRoleOption(o => o.setName("role").setDescription("Role to delete").setRequired(true)),
-    async execute(i) {
-      const role = i.options.getRole("role");
-      await role.delete();
-      await i.reply({ embeds: [embed("🗑️ Role Deleted", `Role **${role.name}** has been deleted.`, COLORS.red)] });
-    },
+  richlist: {
+    category: 'Économie',
+    description: 'Classement des plus riches',
+    async execute(message) {
+      const allData = await db.all();
+      const guildData = allData
+        .filter(e => e.id.startsWith(`coins_${message.guild.id}_`))
+        .map(e => ({ userId: e.id.split('_')[2], coins: e.value }))
+        .sort((a, b) => b.coins - a.coins)
+        .slice(0, 10);
+      if (!guildData.length) return message.reply({ embeds: [embed('💰 Top Riches', 'Aucune donnée.', COLORS.xp)] });
+      const medals = ['🥇', '🥈', '🥉'];
+      const list = guildData.map((d, i) => {
+        const user = client.users.cache.get(d.userId);
+        return `${medals[i] || `**${i+1}.**`} ${user ? user.tag : `<@${d.userId}>`} — **${d.coins.toLocaleString()}** 💎`;
+      }).join('\n');
+      message.reply({ embeds: [embed('💰 Top Riches', list, COLORS.xp)] });
+    }
   },
 
-  // ── CHANNEL MANAGEMENT ────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("createchannel").setDescription("Create a text channel").setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels).addStringOption(o => o.setName("name").setDescription("Channel name").setRequired(true)),
-    async execute(i) {
-      const name = i.options.getString("name").toLowerCase().replace(/ /g, "-");
-      const ch = await i.guild.channels.create({ name, type: 0 });
-      await i.reply({ embeds: [embed("✅ Channel Created", `<#${ch.id}> created!`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("deletechannel").setDescription("Delete a channel").setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels).addChannelOption(o => o.setName("channel").setDescription("Channel to delete").setRequired(true)),
-    async execute(i) {
-      const ch = i.options.getChannel("channel");
-      await ch.delete();
-      await i.reply({ embeds: [embed("🗑️ Channel Deleted", `Channel **${ch.name}** deleted.`, COLORS.red)] });
-    },
-  },
-
-  // ── PREMIUM SPECIFIC SERVICES ─────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("premiumstatus").setDescription("Check your premium status"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("💎 Premium Status", `**User:** ${i.user.tag}\n**Status:** Active ✅\n**Tier:** Gold\n**Expires:** <t:${Math.floor(Date.now() / 1000) + 2592000}:R>`, COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("premiumtiers").setDescription("View all available premium tiers"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("💎 Premium Tiers", "**🥉 Bronze** — $4.99/mo\n**🥈 Silver** — $9.99/mo\n**🥇 Gold** — $14.99/mo\n**💎 Diamond** — $24.99/mo\n**👑 King** — $49.99/mo\n**🌟 God** — $99.99/mo", COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("subscribe").setDescription("Subscribe to a premium plan").addStringOption(o => o.setName("tier").setDescription("Choose your tier").setRequired(true).addChoices({ name: "Bronze", value: "bronze" }, { name: "Silver", value: "silver" }, { name: "Gold", value: "gold" }, { name: "Diamond", value: "diamond" }, { name: "King", value: "king" }, { name: "God", value: "god" })),
-    async execute(i) {
-      const tier = i.options.getString("tier");
-      await i.reply({ embeds: [embed("✅ Subscription", `You've subscribed to **${tier.toUpperCase()}** premium! Contact staff to complete payment.`, COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("cancelsubscription").setDescription("Cancel your premium subscription"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("❌ Subscription Cancelled", "Your premium subscription has been cancelled. Open a ticket if this was a mistake.", COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("redeem").setDescription("Redeem a premium code").addStringOption(o => o.setName("code").setDescription("Your redemption code").setRequired(true)),
-    async execute(i) {
-      const code = i.options.getString("code");
-      await i.reply({ embeds: [embed("🎁 Code Redeemed", `Code \`${code}\` has been submitted for verification. Staff will apply your benefits shortly.`, COLORS.green)], ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("transfer").setDescription("Transfer premium to another user").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addUserOption(o => o.setName("user").setDescription("Recipient").setRequired(true)).addStringOption(o => o.setName("tier").setDescription("Tier to transfer").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user"); const tier = i.options.getString("tier");
-      await i.reply({ embeds: [embed("🔄 Premium Transferred", `**${tier}** premium has been transferred to **${user.tag}**.`, COLORS.cyan)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("setpremium").setDescription("Manually set a user's premium").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)).addStringOption(o => o.setName("tier").setDescription("Tier").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user"); const tier = i.options.getString("tier");
-      await i.reply({ embeds: [embed("⚙️ Premium Set", `**${user.tag}** has been granted **${tier}** premium.`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("revokepremium").setDescription("Revoke a user's premium").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.reply({ embeds: [embed("❌ Premium Revoked", `Premium access revoked from **${user.tag}**.`, COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("premiumlist").setDescription("List all premium users").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    async execute(i) {
-      await i.reply({ embeds: [embed("📋 Premium Users", "*(This would display a live database list in production)*\n\nExample entries:\n• User#0001 — King\n• User#0002 — Diamond\n• User#0003 — Gold", COLORS.gold)] });
-    },
+  // ══════════════ 🎭 RÔLES RÉACTION (Circle) ══════════════
+  reactionrole: {
+    category: 'RôlesRéaction',
+    description: 'Créer un message de rôles par réaction',
+    usage: '!reactionrole #salon [emoji] [@rôle] [description]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Permission insuffisante.')] });
+      const channel = message.mentions.channels.first();
+      const role = message.mentions.roles.first();
+      if (!channel || !role || !args[1]) return message.reply({ embeds: [errorEmbed('Usage: !reactionrole #salon [emoji] @rôle')] });
+      const emoji = args[1];
+      const e = embed('🎭 Rôles par réaction', `Réagissez avec ${emoji} pour obtenir le rôle **${role.name}** !`, COLORS.primary);
+      const msg = await channel.send({ embeds: [e] });
+      await msg.react(emoji);
+      await db.set(`rr_${msg.id}`, { roleId: role.id, emoji });
+      message.reply({ embeds: [successEmbed(`Message de rôle créé dans <#${channel.id}>.`)] });
+    }
   },
 
-  // ── LOGGING / ADMIN ───────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("setlogchannel").setDescription("Set the logging channel").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName("channel").setDescription("Log channel").setRequired(true)),
-    async execute(i) {
-      const ch = i.options.getChannel("channel");
-      await i.reply({ embeds: [embed("📝 Log Channel Set", `Logs will now be sent to <#${ch.id}>.`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("setwelcomechannel").setDescription("Set the welcome channel").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addChannelOption(o => o.setName("channel").setDescription("Welcome channel").setRequired(true)),
-    async execute(i) {
-      const ch = i.options.getChannel("channel");
-      await i.reply({ embeds: [embed("👋 Welcome Channel Set", `New member welcomes will appear in <#${ch.id}>.`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("prefix").setDescription("Change the bot prefix (legacy)").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName("prefix").setDescription("New prefix").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("✏️ Prefix Changed", `Bot prefix set to **${i.options.getString("prefix")}** (slash commands are primary).`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("disablecommand").setDescription("Disable a command").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName("command").setDescription("Command to disable").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🚫 Command Disabled", `Command **/${i.options.getString("command")}** has been disabled.`, COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("enablecommand").setDescription("Re-enable a command").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName("command").setDescription("Command to enable").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("✅ Command Enabled", `Command **/${i.options.getString("command")}** has been enabled.`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("maintenance").setDescription("Toggle maintenance mode").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🔧 Maintenance Mode", "Maintenance mode toggled. The bot will respond with maintenance messages.", COLORS.orange)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("setbotname").setDescription("Change the bot's nickname").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addStringOption(o => o.setName("name").setDescription("New nickname").setRequired(true)),
-    async execute(i) {
-      const name = i.options.getString("name");
-      await i.guild.members.me?.setNickname(name);
-      await i.reply({ embeds: [embed("✏️ Nickname Updated", `Bot nickname changed to **${name}**.`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("blacklist").setDescription("Blacklist a user from using the bot").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addUserOption(o => o.setName("user").setDescription("User to blacklist").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.reply({ embeds: [embed("🚫 Blacklisted", `**${user.tag}** has been blacklisted from using this bot.`, COLORS.red)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("unblacklist").setDescription("Remove a user from the blacklist").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addUserOption(o => o.setName("user").setDescription("User to unblacklist").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      await i.reply({ embeds: [embed("✅ Unblacklisted", `**${user.tag}** has been removed from the blacklist.`, COLORS.green)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("dm").setDescription("DM a user (admin)").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)).addStringOption(o => o.setName("message").setDescription("Message to send").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user"); const msg = i.options.getString("message");
-      try { await user.send({ embeds: [embed("📩 Message from Staff", msg, COLORS.blue)] }); await i.reply({ content: "✅ DM sent!", ephemeral: true }); }
-      catch { await i.reply({ content: "❌ Could not DM that user.", ephemeral: true }); }
-    },
+  // ══════════════ 🧑‍💻 OWNER ══════════════
+  eval: {
+    category: 'Owner',
+    description: 'Exécuter du code JavaScript (Owner)',
+    usage: '!eval [code]',
+    async execute(message, args) {
+      if (message.author.id !== OWNER_ID) return message.reply({ embeds: [errorEmbed('Commande réservée au propriétaire.')] });
+      try {
+        const code = args.join(' ');
+        let result = eval(code);
+        if (result instanceof Promise) result = await result;
+        result = typeof result !== 'string' ? JSON.stringify(result, null, 2) : result;
+        if (result?.length > 1900) result = result.slice(0, 1900) + '...';
+        message.reply({ embeds: [embed('✅ Eval', `\`\`\`js\n${result}\`\`\``, COLORS.success)] });
+      } catch (e) {
+        message.reply({ embeds: [errorEmbed(`\`\`\`${e.message}\`\`\``)] });
+      }
+    }
   },
 
-  // ── MISCELLANEOUS ─────────────────────────────────────────
-  {
-    data: new SlashCommandBuilder().setName("report").setDescription("Report a user").addUserOption(o => o.setName("user").setDescription("User to report").setRequired(true)).addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user"); const reason = i.options.getString("reason");
-      await i.reply({ embeds: [embed("🚨 Report Submitted", `**Reported:** ${user.tag}\n**Reason:** ${reason}\n\nStaff have been notified.`, COLORS.red)], ephemeral: true });
-    },
+  reload: {
+    category: 'Owner',
+    description: 'Recharger le bot',
+    async execute(message) {
+      if (message.author.id !== OWNER_ID) return;
+      message.reply({ embeds: [successEmbed('Rechargement...')] }).then(() => process.exit(0));
+    }
   },
-  {
-    data: new SlashCommandBuilder().setName("suggest").setDescription("Submit a suggestion").addStringOption(o => o.setName("suggestion").setDescription("Your suggestion").setRequired(true)),
-    async execute(i) {
-      const suggestion = i.options.getString("suggestion");
-      const msg = await i.channel.send({ embeds: [embed("💡 Suggestion", `**By:** ${i.user.tag}\n\n${suggestion}`, COLORS.cyan)] });
-      await msg.react("👍"); await msg.react("👎");
-      await i.reply({ content: "✅ Suggestion submitted!", ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("afk").setDescription("Set your AFK status").addStringOption(o => o.setName("reason").setDescription("AFK reason (optional)")),
-    async execute(i) {
-      const reason = i.options.getString("reason") ?? "AFK";
-      await i.reply({ embeds: [embed("💤 AFK Set", `**${i.user.username}** is now AFK: ${reason}`, COLORS.dark)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("whois").setDescription("Get detailed info on a user").addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)),
-    async execute(i) {
-      const user = i.options.getUser("user");
-      const member = i.guild.members.cache.get(user.id);
-      const roles = member?.roles.cache.filter(r => r.id !== i.guild.id).map(r => r.toString()).join(", ") || "None";
-      await i.reply({ embeds: [embed(`🔍 Who is ${user.username}?`, `**Tag:** ${user.tag}\n**ID:** ${user.id}\n**Joined:** <t:${Math.floor(member?.joinedTimestamp / 1000)}:R>\n**Roles:** ${roles}`, COLORS.blue).setThumbnail(user.displayAvatarURL())] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("nickname").setDescription("Change a member's nickname").setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames).addUserOption(o => o.setName("user").setDescription("Target user").setRequired(true)).addStringOption(o => o.setName("name").setDescription("New nickname")),
-    async execute(i) {
-      const member = i.guild.members.cache.get(i.options.getUser("user").id);
-      const name = i.options.getString("name") ?? null;
-      await member?.setNickname(name);
-      await i.reply({ embeds: [embed("✏️ Nickname Updated", `**${member?.user.tag}** nickname set to **${name ?? "reset"}**.`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("color").setDescription("Show information about a hex color").addStringOption(o => o.setName("hex").setDescription("Hex color e.g. #FF5733").setRequired(true)),
-    async execute(i) {
-      const hex = i.options.getString("hex").replace("#", "");
-      const int = parseInt(hex, 16);
-      await i.reply({ embeds: [embed("🎨 Color Info", `**Hex:** #${hex}\n**Decimal:** ${int}`, int)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("snipe").setDescription("Show the last deleted message (if cached)"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("👻 Snipe", "No recently deleted message found in cache.", COLORS.dark)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("help").setDescription("Show all available commands"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("📖 Help — All Commands", "**Premium Services:** /arcane /kingpremium /sapphirecircle /dynopremium /mee6premium /nitropremium /vippremium /elitepremium /diamondpremium /godpremium\n\n**Moderation:** /ban /kick /mute /unmute /warn /purge /slowmode /lock /unlock /unban\n\n**Tickets:** /ticket /closeticket /adduser /removeuser /claimticket\n\n**Fun:** /coinflip /dice /8ball /rps /meme /hug /slap /quote /randomnumber /choose\n\n**Utility:** /ping /uptime /botinfo /say /embed /announce /poll /reminder /timestamp /calculator\n\n**Economy:** /balance /daily /work /shop /leaderboard\n\n**Music:** /play /skip /stop /queue /volume /pause /resume /shuffle /loop\n\n**Admin:** /giverole /removerole /createrole /setlogchannel /setwelcomechannel /blacklist ...\n\n**And more!** — 100 total commands", COLORS.gold)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("stats").setDescription("Show bot statistics"),
-    async execute(i) {
-      const mem = process.memoryUsage();
-      await i.reply({ embeds: [embed("📊 Bot Statistics", `**Servers:** ${client.guilds.cache.size}\n**Users:** ${client.users.cache.size}\n**Commands:** 100\n**Memory:** ${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB\n**Node.js:** ${process.version}`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("feedback").setDescription("Send feedback about the bot").addStringOption(o => o.setName("message").setDescription("Your feedback").setRequired(true)),
-    async execute(i) {
-      await i.reply({ embeds: [embed("📬 Feedback Received", `Thank you, **${i.user.username}**! Your feedback has been submitted.`, COLORS.green)], ephemeral: true });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("invite").setDescription("Get the bot's invite link"),
-    async execute(i) {
-      const link = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`;
-      await i.reply({ embeds: [embed("🔗 Invite the Bot", `[Click here to invite me to your server!](${link})`, COLORS.blue)] });
-    },
-  },
-  {
-    data: new SlashCommandBuilder().setName("support").setDescription("Get a link to the support server"),
-    async execute(i) {
-      await i.reply({ embeds: [embed("🛠️ Support Server", "Join our support server for help: **discord.gg/yourinvite**", COLORS.blue)] });
-    },
-  },
-];
 
-// ─── REGISTER COMMANDS ─────────────────────────────────────
-for (const cmd of commandDefs) {
-  client.commands.set(cmd.data.name, cmd);
-}
+  guilds: {
+    category: 'Owner',
+    description: 'Liste des serveurs du bot',
+    async execute(message) {
+      if (message.author.id !== OWNER_ID) return;
+      const list = client.guilds.cache.map(g => `**${g.name}** — ${g.memberCount} membres`).join('\n');
+      message.reply({ embeds: [embed(`🌐 Serveurs (${client.guilds.cache.size})`, list.slice(0, 4000) || 'Aucun', COLORS.info)] });
+    }
+  },
 
-async function deployCommands() {
-  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-  const route = process.env.GUILD_ID
-    ? Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID)
-    : Routes.applicationCommands(process.env.CLIENT_ID);
+};
 
-  console.log(`📡 Deploying ${commandDefs.length} commands…`);
-  await rest.put(route, { body: commandDefs.map(c => c.data.toJSON()) });
-  console.log(`✅ ${commandDefs.length} commands deployed.`);
-}
+// Alias commandes embed
+commands['clear'] = { ...commands.purge, description: 'Alias de !purge' };
+commands['lb'] = { ...commands.leaderboard, description: 'Alias de !leaderboard' };
+commands['bal'] = { ...commands.balance, description: 'Alias de !balance' };
 
-// ─── EVENT HANDLERS ────────────────────────────────────────
-client.once("ready", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  client.user.setActivity("Premium Services 💎", { type: ActivityType.Watching });
-  try { await deployCommands(); } catch (err) { console.error("Deploy failed:", err); }
-});
+// ─── Event: Message ───────────────────────────────────────────────────────────
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.guild) return;
 
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  const command = client.commands.get(interaction.commandName);
-  if (!command) return;
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(`Error in /${interaction.commandName}:`, error);
-    const msg = { embeds: [embed("❌ Error", "Something went wrong running this command.", COLORS.red)], ephemeral: true };
-    if (interaction.replied || interaction.deferred) await interaction.followUp(msg);
-    else await interaction.reply(msg);
+  // XP Auto
+  if (Math.random() < 0.5) {
+    const result = await addXP(message.member, Math.floor(Math.random() * 10) + 5);
+    if (result.leveledUp) {
+      const levelupChannel = await db.get(`levelup_${message.guild.id}`);
+      const channel = levelupChannel ? message.guild.channels.cache.get(levelupChannel) : message.channel;
+      channel?.send({ embeds: [embed('⭐ Niveau supérieur !', `<@${message.author.id}> a atteint le **niveau ${result.level}** ! 🎉`, COLORS.xp)] });
+    }
   }
-});
 
-client.on("guildMemberAdd", async member => {
-  const channel = member.guild.systemChannel;
-  if (channel) {
-    await channel.send({ embeds: [embed("👋 Welcome!", `Welcome to **${member.guild.name}**, ${member}! 🎉\nYou are member **#${member.guild.memberCount}**.`, COLORS.green).setThumbnail(member.user.displayAvatarURL())] });
-  }
-});
+  const guildPrefix = (await db.get(`prefix_${message.guild.id}`)) || PREFIX;
+  if (!message.content.startsWith(guildPrefix)) return;
 
-// ─── PREFIX (!) MESSAGE HANDLER ────────────────────────────
-client.on("messageCreate", async message => {
-  if (message.author.bot) return;
-  if (!message.content.startsWith(PREFIX)) return;
-
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const args = message.content.slice(guildPrefix.length).trim().split(/\s+/);
   const commandName = args.shift().toLowerCase();
-
-  // Map prefix commands → slash command handlers
-  const prefixMap = {
-    ping:          "ping",
-    help:          "help",
-    ban:           "ban",
-    kick:          "kick",
-    mute:          "mute",
-    unmute:        "unmute",
-    warn:          "warn",
-    purge:         "purge",
-    lock:          "lock",
-    unlock:        "unlock",
-    unban:         "unban",
-    serverinfo:    "serverinfo",
-    userinfo:      "userinfo",
-    avatar:        "avatar",
-    botinfo:       "botinfo",
-    uptime:        "uptime",
-    coinflip:      "coinflip",
-    dice:          "dice",
-    meme:          "meme",
-    quote:         "quote",
-    stats:         "stats",
-    balance:       "balance",
-    daily:         "daily",
-    work:          "work",
-    shop:          "shop",
-    leaderboard:   "leaderboard",
-    ticket:        "ticket",
-    arcane:        "arcane",
-    kingpremium:   "kingpremium",
-    sapphire:      "sapphirecircle",
-    dyno:          "dynopremium",
-    mee6:          "mee6premium",
-    nitro:         "nitropremium",
-    vip:           "vippremium",
-    elite:         "elitepremium",
-    diamond:       "diamondpremium",
-    god:           "godpremium",
-    premiumtiers:  "premiumtiers",
-    subscribe:     "subscribe",
-    redeem:        "redeem",
-    invite:        "invite",
-    support:       "support",
-    suggest:       "suggest",
-    report:        "report",
-    afk:           "afk",
-    boostinfo:     "boostinfo",
-    members:       "members",
-    roles:         "roles",
-    emojis:        "emojis",
-    rank:          "rank",
-    play:          "play",
-    skip:          "skip",
-    stop:          "stop",
-    queue:         "queue",
-    pause:         "pause",
-    resume:        "resume",
-    shuffle:       "shuffle",
-    poll:          "poll",
-    snipe:         "snipe",
-    feedback:      "feedback",
-  };
-
-  const targetCommand = prefixMap[commandName];
-  if (!targetCommand) {
-    return message.reply({ embeds: [embed("❓ Unknown Command", `Unknown command \`${PREFIX}${commandName}\`. Type \`${PREFIX}help\` for a list.`, COLORS.red)] });
-  }
-
-  const command = client.commands.get(targetCommand);
+  const command = commands[commandName];
   if (!command) return;
 
-  // Build a fake interaction-like object for simple commands
-  const fakeInteraction = {
-    user: message.author,
-    guild: message.guild,
-    channel: message.channel,
-    member: message.member,
-    options: {
-      getString: () => args.join(" ") || null,
-      getUser: () => message.mentions.users.first() || null,
-      getRole: () => message.mentions.roles.first() || null,
-      getChannel: () => message.mentions.channels.first() || null,
-      getInteger: () => parseInt(args[0]) || null,
-      getBoolean: () => null,
-    },
-    reply: async (data) => {
-      try { await message.reply(data); } catch { await message.channel.send(data); }
-    },
-    editReply: async (data) => {
-      try { await message.channel.send(data); } catch {}
-    },
-    followUp: async (data) => {
-      try { await message.channel.send(data); } catch {}
-    },
-    replied: false,
-    deferred: false,
-  };
+  // Cooldown
+  const cd = cooldowns.get(`${message.author.id}_${commandName}`);
+  if (cd && Date.now() < cd) return message.reply({ embeds: [errorEmbed(`Attendez \`${Math.ceil((cd - Date.now()) / 1000)}s\`.`)] });
+  cooldowns.set(`${message.author.id}_${commandName}`, Date.now() + 3000);
 
   try {
-    await command.execute(fakeInteraction);
-  } catch (error) {
-    console.error(`Prefix command error [${PREFIX}${commandName}]:`, error);
-    message.reply({ embeds: [embed("❌ Error", "Something went wrong with this command.", COLORS.red)] });
+    await command.execute(message, args);
+  } catch (err) {
+    console.error(`[Erreur] ${commandName}:`, err);
+    message.reply({ embeds: [errorEmbed('Une erreur est survenue.')] });
   }
 });
 
-// ─── LOGIN ─────────────────────────────────────────────────
-if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
-  console.error("❌ Missing DISCORD_TOKEN or CLIENT_ID in .env file!");
-  process.exit(1);
-}
+// ─── Event: Membres ───────────────────────────────────────────────────────────
+client.on('guildMemberAdd', async (member) => {
+  // Message de bienvenue
+  const welcome = await db.get(`welcome_${member.guild.id}`);
+  if (welcome) {
+    const channel = member.guild.channels.cache.get(welcome.channelId);
+    const msg = welcome.message
+      .replace('{user}', `<@${member.id}>`)
+      .replace('{server}', member.guild.name)
+      .replace('{count}', member.guild.memberCount);
+    channel?.send({ embeds: [embed('👋 Bienvenue !', msg, COLORS.success)] });
+  }
+  // Auto-rôle
+  const autorole = await db.get(`autorole_${member.guild.id}`);
+  if (autorole) {
+    const role = member.guild.roles.cache.get(autorole);
+    if (role) member.roles.add(role).catch(() => {});
+  }
+});
 
-client.login(process.env.DISCORD_TOKEN);
+client.on('guildMemberRemove', async (member) => {
+  const leave = await db.get(`leave_${member.guild.id}`);
+  if (leave) {
+    const channel = member.guild.channels.cache.get(leave.channelId);
+    const msg = leave.message
+      .replace('{user}', member.user.tag)
+      .replace('{server}', member.guild.name);
+    channel?.send({ embeds: [embed('🚪 Départ', msg, COLORS.warning)] });
+  }
+});
+
+// ─── Event: Réactions (rôles réaction) ───────────────────────────────────────
+client.on('messageReactionAdd', async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch().catch(() => {});
+  const data = await db.get(`rr_${reaction.message.id}`);
+  if (!data) return;
+  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
+    const guild = reaction.message.guild;
+    const member = guild.members.cache.get(user.id);
+    const role = guild.roles.cache.get(data.roleId);
+    if (member && role) member.roles.add(role).catch(() => {});
+  }
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch().catch(() => {});
+  const data = await db.get(`rr_${reaction.message.id}`);
+  if (!data) return;
+  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
+    const guild = reaction.message.guild;
+    const member = guild.members.cache.get(user.id);
+    const role = guild.roles.cache.get(data.roleId);
+    if (member && role) member.roles.remove(role).catch(() => {});
+  }
+});
+
+// ─── Event: Logs ─────────────────────────────────────────────────────────────
+client.on('messageDelete', async (message) => {
+  const logChannelId = await db.get(`logs_${message.guild?.id}`);
+  if (!logChannelId || !message.guild) return;
+  const channel = message.guild.channels.cache.get(logChannelId);
+  if (!channel) return;
+  channel.send({ embeds: [embed('🗑 Message supprimé', `**Auteur:** ${message.author?.tag || 'Inconnu'}\n**Salon:** <#${message.channelId}>\n**Contenu:** ${message.content?.slice(0, 500) || 'Aucun contenu'}`, COLORS.mod)] });
+});
+
+client.on('guildBanAdd', async (ban) => {
+  const logChannelId = await db.get(`logs_${ban.guild.id}`);
+  if (!logChannelId) return;
+  const channel = ban.guild.channels.cache.get(logChannelId);
+  channel?.send({ embeds: [embed('🔨 Membre banni', `**Utilisateur:** ${ban.user.tag}\n**Raison:** ${ban.reason || 'Aucune'}`, COLORS.mod)] });
+});
+
+// ─── Ready ────────────────────────────────────────────────────────────────────
+client.once('ready', () => {
+  const count = Object.keys(commands).length;
+  console.log(`
+╔══════════════════════════════════════╗
+║   ✅ ${client.user.tag} connecté !        ║
+║   📡 ${client.guilds.cache.size} serveur(s)               ║
+║   📦 ${count} commandes chargées        ║
+║   🔤 Préfixe : ${PREFIX}                    ║
+╚══════════════════════════════════════╝
+  `);
+  client.user.setActivity(`${PREFIX}help | ${count} commandes`, { type: 3 });
+});
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+client.login(TOKEN);

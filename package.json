@@ -1,14 +1,26 @@
 {
-  "name": "discord-bot",
-  "version": "2.0.0",
-  "description": "Multi-purpose Discord bot with moderation, XP, giveaways & fun commands",
+  "name": "discord-premium-bot",
+  "version": "1.0.0",
+  "description": "Discord bot with 100 commands including premium service management",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
-    "dev": "node --watch bot.js"
+    "dev": "nodemon bot.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5"
-  }
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "@discordjs/rest": "^2.3.0",
+    "@discordjs/builders": "^1.8.1",
+    "discord-api-types": "^0.37.78"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
 }
+

@@ -845,21 +845,25 @@ const commands = {
     }
   },
 
-  // ══════════════ 🐌 SLOWMODE (FIXED) ══════════════
+  // ══════════════ 🐌 SLOWMODE (FIXED) ══
   slowmode: {
     category: 'Moderation',
-    description: 'Enable slowmode on a channel. Accepts plain seconds (15) or durations with units (5s, 10m, 2h). Use 0 / off to disable.',
-    usage: '!slowmode [duration]  — ex: !slowmode 30 | !slowmode 5m | !slowmode 2h | !slowmode off',
+    description: 'Enable slowmode on a channel (current channel by default, or a mentioned one). Accepts plain seconds (15) or durations with units (5s, 10m, 2h). Use 0 / off to disable.',
+    usage: '!slowmode [duration] [#channel]  — ex: !slowmode 30 | !slowmode 5m #general | !slowmode off #general',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels))
         return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
 
-      const input = args[0];
+      // Target channel: a mentioned channel anywhere in the args, otherwise the current one
+      const targetChannel = message.mentions.channels.first() || message.channel;
+
+      // Duration arg = first arg that isn't the channel mention itself
+      const input = args.find(a => !/^<#\d+>$/.test(a));
 
       // ── Désactiver le slowmode ──────────────────────────────────────────────
       if (!input || ['0', 'off', 'disable', 'none'].includes(input.toLowerCase())) {
-        await message.channel.setRateLimitPerUser(0);
-        return message.reply({ embeds: [successEmbed('Slowmode disabled.')] });
+        await targetChannel.setRateLimitPerUser(0);
+        return message.reply({ embeds: [successEmbed(`Slowmode disabled in <#${targetChannel.id}>.`)] });
       }
 
       let seconds;
@@ -875,7 +879,8 @@ const commands = {
             embeds: [errorEmbed(
               'Invalid duration.\n' +
               'Examples: `30` (seconds), `30s`, `5m`, `2h`, `1h30m`\n' +
-              'To disable: `!slowmode off` or `!slowmode 0`'
+              'To disable: `!slowmode off` or `!slowmode 0`\n' +
+              'To target another channel: `!slowmode 5m #channel` or `!slowmode off #channel`'
             )]
           });
         }
@@ -889,13 +894,12 @@ const commands = {
         });
       }
 
-      await message.channel.setRateLimitPerUser(seconds);
+      await targetChannel.setRateLimitPerUser(seconds);
       message.reply({
-        embeds: [successEmbed(`🐌 Slowmode set to **${formatDuration(seconds * 1000)}** in this channel.`)]
+        embeds: [successEmbed(`🐌 Slowmode set to **${formatDuration(seconds * 1000)}** in <#${targetChannel.id}>.`)]
       });
     }
   },
-
   lock: {
     category: 'Moderation',
     description: 'Lock a channel',

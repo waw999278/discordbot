@@ -641,11 +641,10 @@ const commands = {
 
   check: {
     category: 'Invites',
-    description: 'Checks who invited a mentioned member, and whether they joined through a personal invite or the vanity/custom link',
-    usage: '!check @member',
+    description: 'Checks who invited a member, and whether they joined through a personal invite or the vanity/custom link. Mention a member to check them, or run with no argument to check yourself',
+    usage: '!check [@member]',
     async execute(message, args) {
-      const user = message.mentions.users.first();
-      if (!user) return message.reply({ embeds: [errorEmbed('Please mention a member. Usage: `!check @member`')] });
+      const user = message.mentions.users.first() || message.author;
 
       const joinData = await db.get(`invitejoin_${message.guild.id}_${user.id}`);
       if (!joinData) {
@@ -860,6 +859,59 @@ const commands = {
       await message.channel.bulkDelete(toDelete, true);
       const m = await message.channel.send({ embeds: [successEmbed(`**${toDelete.length}** messages deleted.`)] });
       setTimeout(() => m.delete().catch(() => {}), 3000);
+    }
+  },
+
+  clearall: {
+    category: 'Moderation',
+    description: 'Deletes ALL messages in a channel. Mention a channel name to target it, or run with no argument to clear the current channel',
+    usage: '!clearall [channel name]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
+      let targetChannel = message.channel;
+
+      if (args.length > 0) {
+        const query = args.join(' ').replace(/^#/, '').toLowerCase();
+        const found = message.guild.channels.cache.find(c => c.isTextBased?.() && c.name.toLowerCase() === query);
+        if (!found) return message.reply({ embeds: [errorEmbed(`No text channel found named **${args.join(' ')}**.`)] });
+        targetChannel = found;
+      }
+
+      const loadingMsg = await message.reply({ embeds: [embed('🧹 Clearing Channel', `Deleting all messages in <#${targetChannel.id}>... this may take a moment.`, COLORS.warning)] });
+
+      let totalDeleted = 0;
+      try {
+        let fetched;
+        do {
+          fetched = await targetChannel.messages.fetch({ limit: 100 });
+          if (fetched.size === 0) break;
+
+          const bulkDeletable = fetched.filter(m => Date.now() - m.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
+          const tooOld = fetched.filter(m => Date.now() - m.createdTimestamp >= 14 * 24 * 60 * 60 * 1000);
+
+          if (bulkDeletable.size > 0) {
+            await targetChannel.bulkDelete(bulkDeletable, true);
+            totalDeleted += bulkDeletable.size;
+          }
+
+          for (const msg of tooOld.values()) {
+            await msg.delete().catch(() => {});
+            totalDeleted++;
+          }
+        } while (fetched.size > 0);
+      } catch (err) {
+        console.error('[clearall] Error:', err);
+      }
+
+      const resultEmbed = successEmbed(`Deleted **${totalDeleted}** message(s) in <#${targetChannel.id}>.`);
+      if (targetChannel.id === message.channel.id) {
+        const m = await targetChannel.send({ embeds: [resultEmbed] });
+        setTimeout(() => m.delete().catch(() => {}), 5000);
+      } else {
+        targetChannel.send({ embeds: [resultEmbed] }).catch(() => {});
+        loadingMsg.edit({ embeds: [resultEmbed] }).catch(() => {});
+      }
     }
   },
 

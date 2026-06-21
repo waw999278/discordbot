@@ -30,11 +30,15 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildExpressions,
+    GatewayIntentBits.GuildInvites,
   ],
 });
 
 client.commands = new Collection();
 const cooldowns = new Collection();
+
+// Cache of invites per guild: Map<guildId, Map<inviteCode, { uses, inviterId }>>
+const invitesCache = new Collection();
 
 // ─── Colors & Helpers ──────────────────────────────────────────────────────────
 const COLORS = {
@@ -368,6 +372,75 @@ async function getMessageStats(guildId, userId) {
   return { today, week, month, total: data.total || 0 };
 }
 
+// ─── Invite Tracking ──────────────────────────────────────────────────────────
+// Stored per guild per inviter: { regular, left, fake, bonus }
+// "regular"  -> joins credited to this inviter where the invite is still valid
+// "left"     -> joins credited to this inviter where the member later left (subtracted from "uses")
+// "fake"     -> joins credited to this inviter from an account that looks fake
+//               (account younger than 7 days at join time)
+// "bonus"    -> manually added invites (not tied to a real invite link), only
+//               touched by !resetinvites / future admin-grant commands
+
+function invitesKey(guildId, userId) {
+  return `invites_${guildId}_${userId}`;
+}
+
+async function getInviteStats(guildId, userId) {
+  return (await db.get(invitesKey(guildId, userId))) || { regular: 0, left: 0, fake: 0, bonus: 0 };
+}
+
+async function addInviteStat(guildId, userId, field, amount = 1) {
+  const key = invitesKey(guildId, userId);
+  const data = (await db.get(key)) || { regular: 0, left: 0, fake: 0, bonus: 0 };
+  data[field] = (data[field] || 0) + amount;
+  await db.set(key, data);
+  return data;
+}
+
+// "Total" shown to users = regular + bonus - left - fake (matches the common
+// Invite Tracker convention: fake/left invites are deducted from the total).
+function totalInvites(stats) {
+  return (stats.regular || 0) + (stats.bonus || 0) - (stats.left || 0) - (stats.fake || 0);
+}
+
+// Cache every invite (code -> uses/inviter) for a guild so we can diff on the
+// next join and figure out which invite was used.
+async function cacheGuildInvites(guild) {
+  try {
+    const invites = await guild.invites.fetch();
+    const map = new Collection();
+    invites.forEach(inv => {
+      map.set(inv.code, { uses: inv.uses || 0, inviterId: inv.inviter?.id || null });
+    });
+    // Vanity URL invite (uses isn't tracked the same way, but cache it anyway)
+    if (guild.vanityURLCode) {
+      try {
+        const vanity = await guild.fetchVanityData();
+        map.set(guild.vanityURLCode, { uses: vanity.uses || 0, inviterId: null });
+      } catch {}
+    }
+    invitesCache.set(guild.id, map);
+  } catch (err) {
+    console.error('[Invites cache] Error:', err.message);
+  }
+}
+
+function buildInviteEmbed(user, stats) {
+  const total = totalInvites(stats);
+  return new EmbedBuilder()
+    .setAuthor({ name: `${user.username}'s Invites`, iconURL: user.displayAvatarURL() })
+    .setColor(COLORS.info)
+    .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
+    .setDescription(
+      `**Total Invites: ${total}**\n\n` +
+      `Regular: **${stats.regular || 0}**\n` +
+      `Left: **${stats.left || 0}**\n` +
+      `Fake: **${stats.fake || 0}**\n` +
+      `Bonus: **${stats.bonus || 0}**`
+    )
+    .setTimestamp();
+}
+
 // ─── Giveaways ──────────────────────────────────────────────────────────────
 async function pickGiveawayWinners(channel, messageId, winnersCount) {
   try {
@@ -583,6 +656,59 @@ const commands = {
     async execute(message) {
       const link = `https://discord.com/api/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot`;
       message.reply({ embeds: [embed('📩 Invite the bot', `[Click here to invite me](${link})`, COLORS.info)] });
+    }
+  },
+
+  // ══════════════ 📨 INVITE TRACKING ══════════════
+  invites: {
+    category: 'Invites',
+    description: 'Shows a member\'s invite stats (regular, left, fake, bonus)',
+    usage: '!invites [@member]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+      const stats = await getInviteStats(message.guild.id, user.id);
+      message.reply({ embeds: [buildInviteEmbed(user, stats)] });
+    }
+  },
+
+  resetinvites: {
+    category: 'Invites',
+    description: 'Resets a member\'s invites back to 0 (regular, left, fake, bonus)',
+    usage: '!resetinvites [@member]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const member = message.mentions.members.first();
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member. Usage: !resetinvites @member')] });
+      const reset = { regular: 0, left: 0, fake: 0, bonus: 0 };
+      await db.set(invitesKey(message.guild.id, member.id), reset);
+      message.reply({ embeds: [successEmbed(`**${member.user.tag}**'s invites have been reset to **0**.`)] });
+    }
+  },
+
+  invitelb: {
+    category: 'Invites',
+    description: 'Server invite leaderboard',
+    usage: '!invitelb',
+    async execute(message) {
+      const all = await db.all();
+      const prefix = `invites_${message.guild.id}_`;
+      const guildData = all
+        .filter(e => e.id.startsWith(prefix))
+        .map(e => ({ userId: e.id.slice(prefix.length), stats: e.value, total: totalInvites(e.value) }))
+        .filter(e => e.total !== 0 || e.stats.regular || e.stats.left || e.stats.fake || e.stats.bonus)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+      if (!guildData.length) return message.reply({ embeds: [embed('📨 Invite Leaderboard', 'No data yet.', COLORS.info)] });
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const list = guildData.map((d, i) => {
+        const user = client.users.cache.get(d.userId);
+        const name = user ? user.tag : `<@${d.userId}>`;
+        return `${medals[i] || `**${i + 1}.**`} ${name} — **${d.total}** invite(s)`;
+      }).join('\n');
+
+      message.reply({ embeds: [embed('📨 Invite Leaderboard', list, COLORS.info)] });
     }
   },
 
@@ -1813,6 +1939,7 @@ const commands = {
 commands['clear'] = { ...commands.purge, description: 'Alias for !purge' };
 commands['lb'] = { ...commands.leaderboard, description: 'Alias for !leaderboard' };
 commands['bal'] = { ...commands.balance, description: 'Alias for !balance' };
+commands['inviteslb'] = { ...commands.invitelb, description: 'Alias for !invitelb' };
 
 // ─── Event: Message ───────────────────────────────────────────────────────────
 client.on('messageCreate', async (message) => {
@@ -1903,6 +2030,54 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
 
 // 📥 Member joins
 client.on('guildMemberAdd', async (member) => {
+  // ── Invite tracking: figure out which invite was used ──────────────────────
+  try {
+    const guild = member.guild;
+    const before = invitesCache.get(guild.id) || new Collection();
+    const after = new Collection();
+    let usedInvite = null;
+
+    try {
+      const freshInvites = await guild.invites.fetch();
+      freshInvites.forEach(inv => {
+        after.set(inv.code, { uses: inv.uses || 0, inviterId: inv.inviter?.id || null });
+        const prev = before.get(inv.code);
+        if (!usedInvite && prev && inv.uses > prev.uses) {
+          usedInvite = { code: inv.code, inviterId: inv.inviter?.id || null };
+        }
+        // Brand new invite created and instantly used once (rare race condition)
+        if (!usedInvite && !prev && inv.uses === 1) {
+          usedInvite = { code: inv.code, inviterId: inv.inviter?.id || null };
+        }
+      });
+
+      // Vanity URL check (if no normal invite matched)
+      if (!usedInvite && guild.vanityURLCode) {
+        try {
+          const vanity = await guild.fetchVanityData();
+          const prevVanity = before.get(guild.vanityURLCode);
+          after.set(guild.vanityURLCode, { uses: vanity.uses || 0, inviterId: null });
+          if (prevVanity && vanity.uses > prevVanity.uses) {
+            usedInvite = { code: guild.vanityURLCode, inviterId: null, vanity: true };
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.error('[Invite diff] Error fetching invites:', err.message);
+    }
+
+    invitesCache.set(guild.id, after);
+
+    if (usedInvite && usedInvite.inviterId) {
+      const isFake = Date.now() - member.user.createdTimestamp < 7 * 24 * 60 * 60 * 1000; // < 7 days old
+      await addInviteStat(guild.id, usedInvite.inviterId, isFake ? 'fake' : 'regular', 1);
+      // Remember which inviter (and whether it counted as fake) gets credit/debit if this member later leaves
+      await db.set(`invitejoin_${guild.id}_${member.id}`, { inviterId: usedInvite.inviterId, fake: isFake });
+    }
+  } catch (err) {
+    console.error('[Invite tracking] Error:', err);
+  }
+
   // Welcome message
   const welcomeChannelId = await db.get(`welcome_${member.guild.id}`);
   if (welcomeChannelId) {
@@ -1944,6 +2119,22 @@ client.on('guildMemberAdd', async (member) => {
 
 // 🚪 Member leaves
 client.on('guildMemberRemove', async (member) => {
+  // ── Invite tracking: if this member was credited to an inviter, mark it "left" ──
+  try {
+    const joinKey = `invitejoin_${member.guild.id}_${member.id}`;
+    const joinData = await db.get(joinKey);
+    if (joinData && joinData.inviterId) {
+      // Only move regular invites into "left"; fake-credited joins are already
+      // excluded from the total, so leaving doesn't need to double-subtract.
+      if (!joinData.fake) {
+        await addInviteStat(member.guild.id, joinData.inviterId, 'left', 1);
+      }
+      await db.delete(joinKey);
+    }
+  } catch (err) {
+    console.error('[Invite tracking] Leave error:', err);
+  }
+
   // Goodbye message
   const goodbyeChannelId = await db.get(`goodbye_${member.guild.id}`);
   if (goodbyeChannelId) {
@@ -2142,111 +2333,4 @@ client.on('channelUpdate', async (oldCh, newCh) => {
   if (!channel) return;
   if (oldCh.name === newCh.name && oldCh.topic === newCh.topic) return;
   const e = logEmbed('🔧 Channel Updated', COLORS.warning)
-    .addFields({ name: 'Channel', value: `<#${newCh.id}>`, inline: false });
-  if (oldCh.name !== newCh.name) e.addFields({ name: 'Name', value: `${oldCh.name} → ${newCh.name}`, inline: false });
-  if (oldCh.topic !== newCh.topic) e.addFields({ name: 'Topic', value: `${oldCh.topic || '*None*'} → ${newCh.topic || '*None*'}`, inline: false });
-  channel.send({ embeds: [e] }).catch(() => {});
-});
-
-// 🎭 Role create/update/delete
-client.on('roleCreate', async (role) => {
-  const channel = await getLogChannel(role.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🎭 Role Created', COLORS.success).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('roleDelete', async (role) => {
-  const channel = await getLogChannel(role.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🗑️ Role Deleted', COLORS.mod).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('roleUpdate', async (oldRole, newRole) => {
-  const channel = await getLogChannel(newRole.guild);
-  if (!channel) return;
-  if (oldRole.name === newRole.name && oldRole.color === newRole.color && oldRole.permissions.bitfield === newRole.permissions.bitfield) return;
-  const e = logEmbed('🔧 Role Updated', COLORS.warning)
-    .addFields({ name: 'Role', value: `<@&${newRole.id}>`, inline: false });
-  if (oldRole.name !== newRole.name) e.addFields({ name: 'Name', value: `${oldRole.name} → ${newRole.name}`, inline: false });
-  if (oldRole.hexColor !== newRole.hexColor) e.addFields({ name: 'Color', value: `${oldRole.hexColor} → ${newRole.hexColor}`, inline: false });
-  channel.send({ embeds: [e] }).catch(() => {});
-});
-
-// 🏠 Server updates
-client.on('guildUpdate', async (oldGuild, newGuild) => {
-  const channel = await getLogChannel(newGuild);
-  if (!channel) return;
-  const e = logEmbed('🏠 Server Updated', COLORS.warning);
-  let changed = false;
-  if (oldGuild.name !== newGuild.name) { e.addFields({ name: 'Name', value: `${oldGuild.name} → ${newGuild.name}`, inline: false }); changed = true; }
-  if (oldGuild.iconURL() !== newGuild.iconURL()) { e.addFields({ name: 'Icon', value: 'Server icon changed', inline: false }); e.setThumbnail(newGuild.iconURL()); changed = true; }
-  if (changed) channel.send({ embeds: [e] }).catch(() => {});
-});
-
-// 😀 Emoji create/update/delete
-client.on('emojiCreate', async (emoji) => {
-  const channel = await getLogChannel(emoji.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('😀 Emoji Added', COLORS.success).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false }).setThumbnail(emoji.imageURL())] }).catch(() => {});
-});
-
-client.on('emojiDelete', async (emoji) => {
-  const channel = await getLogChannel(emoji.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🗑️ Emoji Removed', COLORS.mod).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('emojiUpdate', async (oldEmoji, newEmoji) => {
-  if (oldEmoji.name === newEmoji.name) return;
-  const channel = await getLogChannel(newEmoji.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🔧 Emoji Renamed', COLORS.warning).addFields({ name: 'Before', value: oldEmoji.name, inline: true }, { name: 'After', value: newEmoji.name, inline: true })] }).catch(() => {});
-});
-
-// ─── Event: Reactions (reaction roles) ───────────────────────────────────────
-client.on('messageReactionAdd', async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.partial) await reaction.fetch().catch(() => {});
-  const data = await db.get(`rr_${reaction.message.id}`);
-  if (!data) return;
-  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
-    const guild = reaction.message.guild;
-    const member = guild.members.cache.get(user.id);
-    const role = guild.roles.cache.get(data.roleId);
-    if (member && role) member.roles.add(role).catch(() => {});
-  }
-});
-
-client.on('messageReactionRemove', async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.partial) await reaction.fetch().catch(() => {});
-  const data = await db.get(`rr_${reaction.message.id}`);
-  if (!data) return;
-  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
-    const guild = reaction.message.guild;
-    const member = guild.members.cache.get(user.id);
-    const role = guild.roles.cache.get(data.roleId);
-    if (member && role) member.roles.remove(role).catch(() => {});
-  }
-});
-
-// ─── Ready ────────────────────────────────────────────────────────────────────
-client.once('ready', () => {
-  const count = Object.keys(commands).length;
-  console.log(`
-╔══════════════════════════════════════╗
-║   ✅ ${client.user.tag} connected!        ║
-║   📡 ${client.guilds.cache.size} server(s)               ║
-║   📦 ${count} commands loaded            ║
-║   🔤 Prefix: ${PREFIX}                       ║
-╚══════════════════════════════════════╝
-  `);
-  client.user.setActivity(`${PREFIX}help | ${count} commands`, { type: 3 });
-
-  // Giveaway auto-end checker
-  checkGiveaways();
-  setInterval(checkGiveaways, 30000);
-});
-
-// ─── Login ────────────────────────────────────────────────────────────────────
-client.login(TOKEN);
+    .add

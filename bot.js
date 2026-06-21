@@ -80,18 +80,16 @@ async function generateWelcomeImage() {
 
   const bg = new Jimp(WIDTH, HEIGHT, 0x000000FF);
 
-  // Gold border
   const borderThickness = 6;
   bg.scan(0, 0, WIDTH, HEIGHT, function (x, y, idx) {
     if (x < borderThickness || x >= WIDTH - borderThickness || y < borderThickness || y >= HEIGHT - borderThickness) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
       this.bitmap.data[idx + 3] = 255;
     }
   });
 
-  // Print white text, then recolor white pixels to gold (keeps anti-aliasing)
   const font = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE);
   const textLayer = new Jimp(WIDTH, HEIGHT, 0x00000000);
   textLayer.print(font, 0, 0, {
@@ -103,7 +101,7 @@ async function generateWelcomeImage() {
   textLayer.scan(0, 0, textLayer.bitmap.width, textLayer.bitmap.height, function (x, y, idx) {
     const alpha = this.bitmap.data[idx + 3];
     if (alpha > 0) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
     }
@@ -113,7 +111,7 @@ async function generateWelcomeImage() {
   return bg.getBufferAsync(Jimp.MIME_PNG);
 }
 
-// ─── Generated Goodbye Banner (gold text on black, pure JS via Jimp) ─────────
+// ─── Generated Goodbye Banner ─────────────────────────────────────────────────
 async function generateGoodbyeImage() {
   const WIDTH = 1000, HEIGHT = 350;
   const GOLD = { r: 0xD4, g: 0xAF, b: 0x37 };
@@ -123,7 +121,7 @@ async function generateGoodbyeImage() {
   const borderThickness = 6;
   bg.scan(0, 0, WIDTH, HEIGHT, function (x, y, idx) {
     if (x < borderThickness || x >= WIDTH - borderThickness || y < borderThickness || y >= HEIGHT - borderThickness) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
       this.bitmap.data[idx + 3] = 255;
@@ -141,7 +139,7 @@ async function generateGoodbyeImage() {
   textLayer.scan(0, 0, textLayer.bitmap.width, textLayer.bitmap.height, function (x, y, idx) {
     const alpha = this.bitmap.data[idx + 3];
     if (alpha > 0) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
     }
@@ -151,26 +149,23 @@ async function generateGoodbyeImage() {
   return bg.getBufferAsync(Jimp.MIME_PNG);
 }
 
-// ─── Generated Level Up Banner (gold text on black, pure JS via Jimp) ───────
-// Shows only the level reached — no rank, no XP, no coins, no role color.
+// ─── Generated Level Up Banner ───────────────────────────────────────────────
 async function generateLevelUpImage(level) {
   const WIDTH = 1000, HEIGHT = 350;
   const GOLD = { r: 0xD4, g: 0xAF, b: 0x37 };
 
   const bg = new Jimp(WIDTH, HEIGHT, 0x000000FF);
 
-  // Gold border
   const borderThickness = 6;
   bg.scan(0, 0, WIDTH, HEIGHT, function (x, y, idx) {
     if (x < borderThickness || x >= WIDTH - borderThickness || y < borderThickness || y >= HEIGHT - borderThickness) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
       this.bitmap.data[idx + 3] = 255;
     }
   });
 
-  // "LEVEL UP!" small caption on top
   const captionFont = await Jimp.loadFont(Jimp.FONT_SANS_64_WHITE);
   const captionLayer = new Jimp(WIDTH, 130, 0x00000000);
   captionLayer.print(captionFont, 0, 0, {
@@ -181,14 +176,13 @@ async function generateLevelUpImage(level) {
   captionLayer.scan(0, 0, captionLayer.bitmap.width, captionLayer.bitmap.height, function (x, y, idx) {
     const alpha = this.bitmap.data[idx + 3];
     if (alpha > 0) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
     }
   });
   bg.composite(captionLayer, 0, 30);
 
-  // Big level number underneath
   const levelFont = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE);
   const levelLayer = new Jimp(WIDTH, 200, 0x00000000);
   levelLayer.print(levelFont, 0, 0, {
@@ -199,7 +193,7 @@ async function generateLevelUpImage(level) {
   levelLayer.scan(0, 0, levelLayer.bitmap.width, levelLayer.bitmap.height, function (x, y, idx) {
     const alpha = this.bitmap.data[idx + 3];
     if (alpha > 0) {
-      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx]     = GOLD.r;
       this.bitmap.data[idx + 1] = GOLD.g;
       this.bitmap.data[idx + 2] = GOLD.b;
     }
@@ -224,10 +218,9 @@ function formatDuration(ms_val) {
   return `${s}s`;
 }
 
-// ─── Sticky Messages (StickyBot-style) ───────────────────────────────────────
+// ─── Sticky Messages ──────────────────────────────────────────────────────────
 const MIDDLEMAN_CHANNEL_ID = '1513224477792534629';
 
-// Builds the sticky embed, auto-mentioning whichever channel it's posted in.
 function buildStickyMessage(channelId) {
   return new EmbedBuilder()
     .setDescription(`Welcome to the trading room <#${channelId}>\nTo facilitate your trades, we offer a middleman system available 24/7 In <#${MIDDLEMAN_CHANNEL_ID}>`)
@@ -235,8 +228,6 @@ function buildStickyMessage(channelId) {
     .setTimestamp();
 }
 
-// Deletes the previous sticky post (if it still exists) and sends a fresh one
-// at the bottom of the channel, then saves the new message id.
 async function repostSticky(channel, guildId) {
   const key = `sticky_${guildId}_${channel.id}`;
   const data = await db.get(key);
@@ -261,15 +252,12 @@ async function addXP(member, amount) {
   const current = (await db.get(key)) || { xp: 0, level: 0 };
 
   if (current.level >= MAX_LEVEL) {
-    return { ...current, leveledUp: false }; // Max level reached, no more XP gain
+    return { ...current, leveledUp: false };
   }
 
   current.xp += amount;
   let leveledUp = false;
 
-  // Loop instead of a single "if" so a big XP gain (e.g. !givexp 1000) can
-  // climb through several level thresholds in one go instead of only ever
-  // processing one level-up and leaving the rest of the XP overflowing.
   while (current.level < MAX_LEVEL) {
     const xpNeeded = current.level * 100 + 100;
     if (current.xp < xpNeeded) break;
@@ -291,9 +279,6 @@ async function getXP(userId, guildId) {
   return (await db.get(`xp_${guildId}_${userId}`)) || { xp: 0, level: 0 };
 }
 
-// Posts the gold/black level-up banner + ping in the channel configured via
-// !setlevel (or a fallback channel if none is set). Shared by the natural
-// chat XP gain and by !givexp so both trigger the same announcement.
 async function announceLevelUp(guild, userId, level, fallbackChannel = null) {
   const levelupChannelId = await db.get(`levelup_${guild.id}`);
   const channel = levelupChannelId ? guild.channels.cache.get(levelupChannelId) : fallbackChannel;
@@ -316,12 +301,11 @@ async function announceLevelUp(guild, userId, level, fallbackChannel = null) {
   }
 }
 
-// ─── Message Stats (for !ms) ──────────────────────────────────────────────────
+// ─── Message Stats ────────────────────────────────────────────────────────────
 function dateKey(d) {
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+  return d.toISOString().slice(0, 10);
 }
 
-// Call on every non-bot message to bump the counters.
 async function trackMessage(guildId, userId) {
   const key = `msgstats_${guildId}_${userId}`;
   const data = (await db.get(key)) || { total: 0, daily: {} };
@@ -330,8 +314,6 @@ async function trackMessage(guildId, userId) {
   data.total = (data.total || 0) + 1;
   data.daily[today] = (data.daily[today] || 0) + 1;
 
-  // Prune entries older than 40 days so the daily map doesn't grow forever
-  // (40 covers the worst case of "this month" spanning into last month).
   const cutoff = new Date();
   cutoff.setUTCDate(cutoff.getUTCDate() - 40);
   const cutoffKey = dateKey(cutoff);
@@ -352,20 +334,17 @@ function sumDailyInRange(daily, start, end) {
   return sum;
 }
 
-// Returns { today, week, month, total } message counts for a member.
 async function getMessageStats(guildId, userId) {
   const data = (await db.get(`msgstats_${guildId}_${userId}`)) || { total: 0, daily: {} };
   const now = new Date();
   const today = data.daily[dateKey(now)] || 0;
 
-  // Start of the current (Monday-based) week, UTC
-  const day = now.getUTCDay(); // 0 = Sunday
+  const day = now.getUTCDay();
   const diffToMonday = day === 0 ? 6 : day - 1;
   const weekStart = new Date(now);
   weekStart.setUTCDate(now.getUTCDate() - diffToMonday);
   const week = sumDailyInRange(data.daily, weekStart, now);
 
-  // Start of the current calendar month, UTC
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const month = sumDailyInRange(data.daily, monthStart, now);
 
@@ -373,14 +352,6 @@ async function getMessageStats(guildId, userId) {
 }
 
 // ─── Invite Tracking ──────────────────────────────────────────────────────────
-// Stored per guild per inviter: { regular, left, fake, bonus }
-// "regular"  -> joins credited to this inviter where the invite is still valid
-// "left"     -> joins credited to this inviter where the member later left (subtracted from "uses")
-// "fake"     -> joins credited to this inviter from an account that looks fake
-//               (account younger than 7 days at join time)
-// "bonus"    -> manually added invites (not tied to a real invite link), only
-//               touched by !resetinvites / future admin-grant commands
-
 function invitesKey(guildId, userId) {
   return `invites_${guildId}_${userId}`;
 }
@@ -397,14 +368,10 @@ async function addInviteStat(guildId, userId, field, amount = 1) {
   return data;
 }
 
-// "Total" shown to users = regular + bonus - left - fake (matches the common
-// Invite Tracker convention: fake/left invites are deducted from the total).
 function totalInvites(stats) {
   return (stats.regular || 0) + (stats.bonus || 0) - (stats.left || 0) - (stats.fake || 0);
 }
 
-// Cache every invite (code -> uses/inviter) for a guild so we can diff on the
-// next join and figure out which invite was used.
 async function cacheGuildInvites(guild) {
   try {
     const invites = await guild.invites.fetch();
@@ -412,7 +379,6 @@ async function cacheGuildInvites(guild) {
     invites.forEach(inv => {
       map.set(inv.code, { uses: inv.uses || 0, inviterId: inv.inviter?.id || null });
     });
-    // Vanity URL invite (uses isn't tracked the same way, but cache it anyway)
     if (guild.vanityURLCode) {
       try {
         const vanity = await guild.fetchVanityData();
@@ -441,7 +407,7 @@ function buildInviteEmbed(user, stats) {
     .setTimestamp();
 }
 
-// ─── Giveaways ──────────────────────────────────────────────────────────────
+// ─── Giveaways ────────────────────────────────────────────────────────────────
 async function pickGiveawayWinners(channel, messageId, winnersCount) {
   try {
     const msg = await channel.messages.fetch(messageId);
@@ -671,9 +637,48 @@ const commands = {
     }
   },
 
+  check: {
+    category: 'Invites',
+    description: 'Vérifie qui a invité un membre sur le serveur',
+    usage: '!check @member',
+    async execute(message, args) {
+      const user = message.mentions.users.first();
+      if (!user) return message.reply({ embeds: [errorEmbed('Mentionne un membre. Usage: `!check @member`')] });
+
+      const joinData = await db.get(`invitejoin_${message.guild.id}_${user.id}`);
+      if (!joinData || !joinData.inviterId) {
+        return message.reply({
+          embeds: [embed(
+            '📨 Invitation',
+            `Aucune donnée d'invitation trouvée pour **${user.tag}**.\n*(Peut-être rejoint avant que le bot soit actif, ou via le lien vanity)*`,
+            COLORS.info
+          )]
+        });
+      }
+
+      const inviter = await client.users.fetch(joinData.inviterId).catch(() => null);
+      const stats = await getInviteStats(message.guild.id, joinData.inviterId);
+      const total = totalInvites(stats);
+      const type = joinData.fake ? '⚠️ Fake (compte < 7 jours)' : '✅ Regular';
+
+      const e = new EmbedBuilder()
+        .setAuthor({ name: `Invitation de ${user.tag}`, iconURL: user.displayAvatarURL() })
+        .setColor(COLORS.info)
+        .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+        .setDescription(
+          `**${user.tag}** a été invité par : **${inviter ? inviter.tag : `<@${joinData.inviterId}>`}**\n` +
+          `Type d'invitation : ${type}\n\n` +
+          `**Stats de l'inviteur :**\n` +
+          `Total : **${total}** | Regular : **${stats.regular}** | Left : **${stats.left}** | Fake : **${stats.fake}** | Bonus : **${stats.bonus}**`
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
+  },
+
   resetinvites: {
     category: 'Invites',
-    description: 'Resets a member\'s invites back to 0 (regular, left, fake, bonus). Use @everyone or "all" to reset the whole server.',
+    description: 'Resets a member\'s invites back to 0. Use @everyone or "all" to reset the whole server.',
     usage: '!resetinvites [@member | @everyone | all]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -731,7 +736,6 @@ const commands = {
     category: 'Moderation',
     description: 'Ban a member',
     usage: '!ban @member [reason]',
-    permissions: ['BanMembers'],
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const member = message.mentions.members.first();
@@ -845,61 +849,49 @@ const commands = {
     }
   },
 
-  // ══════════════ 🐌 SLOWMODE (FIXED) ══
   slowmode: {
     category: 'Moderation',
-    description: 'Enable slowmode on a channel (current channel by default, or a mentioned one). Accepts plain seconds (15) or durations with units (5s, 10m, 2h). Use 0 / off to disable.',
-    usage: '!slowmode [duration] [#channel]  — ex: !slowmode 30 | !slowmode 5m #general | !slowmode off #general',
+    description: 'Enable slowmode on a channel. Accepts seconds (15) or durations (5s, 10m, 2h). Use 0/off to disable.',
+    usage: '!slowmode [duration] [#channel]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels))
         return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
 
-      // Target channel: a mentioned channel anywhere in the args, otherwise the current one
       const targetChannel = message.mentions.channels.first() || message.channel;
-
-      // Duration arg = first arg that isn't the channel mention itself
       const input = args.find(a => !/^<#\d+>$/.test(a));
 
-      // ── Désactiver le slowmode ──────────────────────────────────────────────
       if (!input || ['0', 'off', 'disable', 'none'].includes(input.toLowerCase())) {
         await targetChannel.setRateLimitPerUser(0);
         return message.reply({ embeds: [successEmbed(`Slowmode disabled in <#${targetChannel.id}>.`)] });
       }
 
       let seconds;
-
       if (/^\d+$/.test(input)) {
-        // ── Nombre brut sans unité → traité comme des secondes ─────────────
         seconds = parseInt(input, 10);
       } else {
-        // ── Format avec unité : 5s, 10m, 2h, 1d … ─────────────────────────
         const durationMs = parseDuration(input);
         if (!durationMs || isNaN(durationMs) || durationMs <= 0) {
           return message.reply({
             embeds: [errorEmbed(
               'Invalid duration.\n' +
               'Examples: `30` (seconds), `30s`, `5m`, `2h`, `1h30m`\n' +
-              'To disable: `!slowmode off` or `!slowmode 0`\n' +
-              'To target another channel: `!slowmode 5m #channel` or `!slowmode off #channel`'
+              'To disable: `!slowmode off` or `!slowmode 0`'
             )]
           });
         }
         seconds = Math.round(durationMs / 1000);
       }
 
-      const MAX_SLOWMODE = 21600; // Discord hard cap = 6 hours
+      const MAX_SLOWMODE = 21600;
       if (seconds < 1 || seconds > MAX_SLOWMODE) {
-        return message.reply({
-          embeds: [errorEmbed(`Duration must be between **1s** and **6h** (${MAX_SLOWMODE}s max).`)]
-        });
+        return message.reply({ embeds: [errorEmbed(`Duration must be between **1s** and **6h** (${MAX_SLOWMODE}s max).`)] });
       }
 
       await targetChannel.setRateLimitPerUser(seconds);
-      message.reply({
-        embeds: [successEmbed(`🐌 Slowmode set to **${formatDuration(seconds * 1000)}** in <#${targetChannel.id}>.`)]
-      });
+      message.reply({ embeds: [successEmbed(`🐌 Slowmode set to **${formatDuration(seconds * 1000)}** in <#${targetChannel.id}>.`)] });
     }
   },
+
   lock: {
     category: 'Moderation',
     description: 'Lock a channel',
@@ -990,7 +982,7 @@ const commands = {
     }
   },
 
-  // ══════════════ 📊 XP & LEVELS (Arcane) ══════════════
+  // ══════════════ 📊 XP & LEVELS ══════════════
   rank: {
     category: 'Levels',
     description: 'View your level and XP',
@@ -1003,18 +995,15 @@ const commands = {
       const xpNeeded = data.level * 100 + 100;
       const xpCurrent = data.xp;
 
-      // Progress bar (10 blocks)
       const progress = maxed ? 10 : Math.floor((xpCurrent / xpNeeded) * 10);
       const bar = '█'.repeat(progress) + '░'.repeat(10 - progress);
       const percent = maxed ? 100 : Math.floor((xpCurrent / xpNeeded) * 100);
 
-      // Online = green, offline/absent = red
       const presence = member?.presence?.status;
       const isOnline = presence === 'online' || presence === 'idle' || presence === 'dnd';
       const statusColor = isOnline ? 0x57F287 : 0xED4245;
       const statusEmoji = isOnline ? '🟢' : '🔴';
 
-      // Guild rank
       const allData = await db.all();
       const guildData = allData
         .filter(e => e.id.startsWith(`xp_${message.guild.id}_`))
@@ -1041,7 +1030,7 @@ const commands = {
 
   xp: {
     category: 'Levels',
-    description: 'See how much XP you have and how much you need to level up',
+    description: 'See how much XP you have',
     usage: '!xp [@member]',
     async execute(message, args) {
       const user = message.mentions.users.first() || message.author;
@@ -1324,6 +1313,97 @@ const commands = {
     }
   },
 
+  // ── Guess game (Owner choisit un nombre secret) ────────────────────────────
+  guess: {
+    category: 'Fun',
+    description: '(Owner) Lance un jeu de devinette avec un nombre secret que toi seul connais',
+    usage: '!guess [nombre]',
+    async execute(message, args) {
+      if (message.author.id !== OWNER_ID)
+        return message.reply({ embeds: [errorEmbed('Cette commande est réservée au propriétaire du bot.')] });
+
+      const number = parseInt(args[0]);
+      if (isNaN(number))
+        return message.reply({ embeds: [errorEmbed('Usage: `!guess [nombre]` — Exemple: `!guess 42`')] });
+
+      const existing = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
+      if (existing)
+        return message.reply({ embeds: [errorEmbed('Un jeu de devinette est déjà en cours dans ce channel! Utilisez `!stoguess` pour l\'arrêter.')] });
+
+      // Envoyer le nombre en DM à l'owner (invisible au reste du serveur)
+      try {
+        await message.author.send({
+          embeds: [embed('🎯 Nombre Secret', `Le nombre à deviner est **${number}**.\nLe premier qui l\'écrit dans <#${message.channel.id}> gagne!`, COLORS.xp)]
+        });
+      } catch {
+        // DMs fermés, on continue quand même
+      }
+
+      await db.set(`guess_${message.guild.id}_${message.channel.id}`, {
+        number,
+        hostId: message.author.id,
+        range: false,
+      });
+
+      // Supprimer le message de l'owner pour cacher le nombre
+      await message.delete().catch(() => {});
+
+      const e = new EmbedBuilder()
+        .setTitle('🎯 Jeu de Devinette!')
+        .setDescription(`**${message.author.username}** a choisi un nombre secret!\nDevinez le bon nombre pour gagner! 🏆\n\n*Écrivez simplement un nombre dans ce channel.*`)
+        .setColor(COLORS.xp)
+        .setTimestamp();
+      message.channel.send({ embeds: [e] });
+    }
+  },
+
+  // ── Guess game (Bot choisit un nombre aléatoire 1-100) ───────────────────
+  guessrange: {
+    category: 'Fun',
+    description: 'Le bot choisit un nombre aléatoire entre 1 et 100, le premier qui le devine gagne',
+    usage: '!guessrange',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
+        return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
+      const existing = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
+      if (existing)
+        return message.reply({ embeds: [errorEmbed('Un jeu de devinette est déjà en cours dans ce channel! Utilisez `!stopguess` pour l\'arrêter.')] });
+
+      const number = Math.floor(Math.random() * 100) + 1;
+      await db.set(`guess_${message.guild.id}_${message.channel.id}`, {
+        number,
+        hostId: message.author.id,
+        range: true,
+      });
+
+      const e = new EmbedBuilder()
+        .setTitle('🎲 Devinette Aléatoire!')
+        .setDescription(`Le bot a choisi un nombre entre **1** et **100**!\nSoyez le premier à trouver le bon nombre pour gagner! 🏆\n\n*Écrivez simplement un nombre dans ce channel.*`)
+        .setColor(COLORS.xp)
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  // ── Stopguess (arrêter le jeu sans gagnant) ───────────────────────────────
+  stopguess: {
+    category: 'Fun',
+    description: 'Arrête le jeu de devinette en cours dans ce channel',
+    usage: '!stopguess',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
+        return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
+      const existing = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
+      if (!existing)
+        return message.reply({ embeds: [errorEmbed('Aucun jeu de devinette en cours dans ce channel.')] });
+
+      await db.delete(`guess_${message.guild.id}_${message.channel.id}`);
+      message.reply({ embeds: [embed('🛑 Jeu Arrêté', `Le jeu de devinette a été arrêté. Le nombre était **${existing.number}**.`, COLORS.warning)] });
+    }
+  },
+
   // ══════════════ 🛠 UTILITIES ══════════════
   embed_cmd: {
     category: 'Utilities',
@@ -1460,7 +1540,7 @@ const commands = {
     }
   },
 
-  // ══════════════ ⚙️ CONFIG (Dyno) ══════════════
+  // ══════════════ ⚙️ CONFIG ══════════════
   setprefix: {
     category: 'Config',
     description: 'Change the bot\'s prefix on this server',
@@ -1476,7 +1556,7 @@ const commands = {
 
   setwelcome: {
     category: 'Config',
-    description: 'Configure the welcome channel (fixed embed with mention + gold/black banner)',
+    description: 'Configure the welcome channel',
     usage: '!setwelcome #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1502,7 +1582,7 @@ const commands = {
 
   setgoodbye: {
     category: 'Config',
-    description: 'Configure the goodbye channel (fixed embed with mention + gold/black banner)',
+    description: 'Configure the goodbye channel',
     usage: '!setgoodbye #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1515,14 +1595,14 @@ const commands = {
 
   setlogchannel: {
     category: 'Config',
-    description: 'Configure the server logs channel (Carl-bot style logging)',
+    description: 'Configure the server logs channel',
     usage: '!setlogchannel #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
       if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel. Usage: !setlogchannel #channel')] });
       await db.set(`logs_${message.guild.id}`, channel.id);
-      message.reply({ embeds: [successEmbed(`Log channel set to <#${channel.id}>. I'll now log: deleted/edited/purged messages, joins, leaves, bans, unbans, timeouts, role changes, nickname/avatar/username updates, channel changes, role create/update/delete, voice activity, server updates, and emoji changes.`)] });
+      message.reply({ embeds: [successEmbed(`Log channel set to <#${channel.id}>.`)] });
     }
   },
 
@@ -1554,7 +1634,7 @@ const commands = {
 
   setlevel: {
     category: 'Config',
-    description: 'Channel where level-up announcements (1 to 100) are sent — pings the member + gold/black level banner',
+    description: 'Channel where level-up announcements are sent',
     usage: '!setlevel #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1567,7 +1647,7 @@ const commands = {
 
   sticky: {
     category: 'Config',
-    description: 'Posts a sticky trading-room message in one or more channels (StickyBot-style: auto-reposted after every new message)',
+    description: 'Posts a sticky trading-room message in one or more channels',
     usage: '!sticky #channel1 #channel2 ...',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1616,22 +1696,22 @@ const commands = {
     async execute(message) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const g = message.guild.id;
-      const welcome = await db.get(`welcome_${g}`);
-      const goodbye = await db.get(`goodbye_${g}`);
-      const logs = await db.get(`logs_${g}`);
+      const welcome  = await db.get(`welcome_${g}`);
+      const goodbye  = await db.get(`goodbye_${g}`);
+      const logs     = await db.get(`logs_${g}`);
       const autorole = await db.get(`autorole_${g}`);
-      const levelup = await db.get(`levelup_${g}`);
-      const prefix = await db.get(`prefix_${g}`);
+      const levelup  = await db.get(`levelup_${g}`);
+      const prefix   = await db.get(`prefix_${g}`);
       const e = new EmbedBuilder()
         .setTitle(`⚙️ ${message.guild.name}'s config`)
         .setColor(COLORS.info)
         .addFields(
-          { name: '🔤 Prefix', value: prefix || PREFIX, inline: true },
-          { name: '👋 Welcome', value: welcome ? `<#${welcome}>` : 'Not configured', inline: true },
-          { name: '🚪 Goodbye', value: goodbye ? `<#${goodbye}>` : 'Not configured', inline: true },
-          { name: '📋 Log Channel', value: logs ? `<#${logs}>` : 'Not configured (use !setlogchannel)', inline: true },
-          { name: '🎭 Auto-role', value: autorole ? `<@&${autorole}>` : 'Not configured', inline: true },
-          { name: '⭐ Level-up', value: levelup ? `<#${levelup}>` : 'Not configured', inline: true },
+          { name: '🔤 Prefix',      value: prefix   || PREFIX,                           inline: true },
+          { name: '👋 Welcome',     value: welcome  ? `<#${welcome}>`  : 'Not configured', inline: true },
+          { name: '🚪 Goodbye',     value: goodbye  ? `<#${goodbye}>`  : 'Not configured', inline: true },
+          { name: '📋 Log Channel', value: logs     ? `<#${logs}>`     : 'Not configured', inline: true },
+          { name: '🎭 Auto-role',   value: autorole ? `<@&${autorole}>`: 'Not configured', inline: true },
+          { name: '⭐ Level-up',    value: levelup  ? `<#${levelup}>`  : 'Not configured', inline: true },
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
@@ -1654,48 +1734,63 @@ const commands = {
   // ══════════════ 🎉 GIVEAWAYS ══════════════
   gcreate: {
     category: 'Giveaway',
-    description: 'Create a giveaway in the current channel or a mentioned one, with an optional description (attach an image to the message to include it)',
+    description: 'Create a giveaway. Attach an image to the command message to include it.',
     usage: '!gcreate [winners] [duration] [#channel] [prize] | [description]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
 
+      // ── Sauvegarder l'URL de l'image AVANT toute suppression du message ──
+      const image = message.attachments.first()?.url || null;
+
       const winners = parseInt(args[0]);
       const duration = parseDuration(args[1]);
 
-      // Optional target channel: a mention anywhere from args[2] onward
       const targetChannel = message.mentions.channels.first() || message.channel;
 
-      // Remaining text (after winners + duration), with the channel mention stripped out
       const rest = args.slice(2).filter(a => !/^<#\d+>$/.test(a)).join(' ');
-
-      // Split on the first "|" to separate prize from an optional description
       const [prizePart, ...descParts] = rest.split('|');
       const prize = prizePart.trim();
       const description = descParts.join('|').trim();
 
       if (!winners || winners < 1 || !duration || !prize) {
-        return message.reply({ embeds: [errorEmbed('Usage: !gcreate [winners] [duration] [#channel] [prize] | [description]\nEx: `!gcreate 1 1h #giveaways Discord Nitro | Must be in the server for 7+ days` (attach an image if you want one)')] });
+        return message.reply({
+          embeds: [errorEmbed(
+            'Usage: `!gcreate [winners] [duration] [#channel] [prize] | [description]`\n' +
+            'Ex: `!gcreate 1 1h #giveaways Discord Nitro | Must be in the server for 7+ days`\n' +
+            '*(Attach an image to the message to include it in the giveaway)*'
+          )]
+        });
       }
+
       const endTime = Date.now() + duration;
-      const image = message.attachments.first()?.url || null;
 
       let desc = `**Prize:** ${prize}\n**Winners:** ${winners}\n**Ends:** <t:${Math.floor(endTime / 1000)}:R> (<t:${Math.floor(endTime / 1000)}:F>)\n**Hosted by:** <@${message.author.id}>`;
       if (description) desc += `\n\n${description}`;
       desc += `\n\nReact with 🎉 to enter!`;
 
-      const e = new EmbedBuilder()
+      // Premier envoi du message du giveaway
+      const initialEmbed = new EmbedBuilder()
         .setTitle('🎉 GIVEAWAY 🎉')
         .setDescription(desc)
         .setColor(COLORS.xp)
-        .setTimestamp(endTime);
-      if (image) e.setImage(image);
+        .setTimestamp(endTime)
+        .setFooter({ text: 'Giveaway starting...' });
+      if (image) initialEmbed.setImage(image);
 
-      const giveawayMsg = await targetChannel.send({ embeds: [e] });
+      const giveawayMsg = await targetChannel.send({ embeds: [initialEmbed] });
       await giveawayMsg.react('🎉');
 
-      // Now that we have the message ID, add it to the embed footer so it's
-      // visible (and copyable) directly on the giveaway post itself.
-      const finalEmbed = EmbedBuilder.from(e).setFooter({ text: `Giveaway ID: ${giveawayMsg.id}` });
+      // Maintenant qu'on a l'ID du message, on reconstruit l'embed complet avec
+      // le footer correct ET l'image (en recréant l'embed depuis zéro pour éviter
+      // que EmbedBuilder.from() écrase l'image).
+      const finalEmbed = new EmbedBuilder()
+        .setTitle('🎉 GIVEAWAY 🎉')
+        .setDescription(desc)
+        .setColor(COLORS.xp)
+        .setTimestamp(endTime)
+        .setFooter({ text: `Giveaway ID: ${giveawayMsg.id}` });
+      if (image) finalEmbed.setImage(image); // ← image re-appliquée sur le nouvel embed
+
       await giveawayMsg.edit({ embeds: [finalEmbed] }).catch(() => {});
 
       await db.set(`giveaway_${giveawayMsg.id}`, {
@@ -1708,16 +1803,17 @@ const commands = {
         hostId: message.author.id,
         ended: false,
         winnerIds: [],
+        image,
       });
 
-      message.reply({ embeds: [successEmbed(`Giveaway created in <#${targetChannel.id}>! 🎉\nUse this ID with \`!gend\`, \`!gdelete\` or \`!greroll\`:\n\`\`\`${giveawayMsg.id}\`\`\``)] });
+      message.reply({ embeds: [successEmbed(`Giveaway created in <#${targetChannel.id}>! 🎉\nID: \`${giveawayMsg.id}\``)] });
       message.delete().catch(() => {});
     }
   },
 
   gend: {
     category: 'Giveaway',
-    description: 'End a giveaway immediately and pick the winner(s)',
+    description: 'End a giveaway immediately',
     usage: '!gend [giveawayID]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1861,7 +1957,7 @@ const commands = {
       const amount = parseInt(args[1]);
       if (!target || isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Usage: !pay @member [amount]')] });
       const fromKey = `coins_${message.guild.id}_${message.author.id}`;
-      const toKey = `coins_${message.guild.id}_${target.id}`;
+      const toKey   = `coins_${message.guild.id}_${target.id}`;
       const from = (await db.get(fromKey)) || 0;
       if (from < amount) return message.reply({ embeds: [errorEmbed('Insufficient balance.')] });
       await db.set(fromKey, from - amount);
@@ -1915,11 +2011,11 @@ const commands = {
     }
   },
 
-  // ══════════════ 🎭 REACTION ROLES (Circle) ══════════════
+  // ══════════════ 🎭 REACTION ROLES ══════════════
   reactionrole: {
     category: 'ReactionRoles',
     description: 'Create a reaction role message',
-    usage: '!reactionrole #channel [emoji] [@role] [description]',
+    usage: '!reactionrole #channel [emoji] [@role]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
@@ -1975,17 +2071,17 @@ const commands = {
 
 };
 
-// Command aliases
-commands['clear'] = { ...commands.purge, description: 'Alias for !purge' };
-commands['lb'] = { ...commands.leaderboard, description: 'Alias for !leaderboard' };
-commands['bal'] = { ...commands.balance, description: 'Alias for !balance' };
-commands['inviteslb'] = { ...commands.invitelb, description: 'Alias for !invitelb' };
+// ── Aliases ───────────────────────────────────────────────────────────────────
+commands['clear'] = { ...commands.purge,       description: 'Alias for !purge' };
+commands['lb']    = { ...commands.leaderboard, description: 'Alias for !leaderboard' };
+commands['bal']   = { ...commands.balance,     description: 'Alias for !balance' };
+// NOTE: !inviteslb supprimé — utilisez !invitelb
 
 // ─── Event: Message ───────────────────────────────────────────────────────────
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
 
-  // Message stats tracking (for !ms)
+  // Message stats tracking
   await trackMessage(message.guild.id, message.author.id);
 
   // Auto XP
@@ -1996,9 +2092,25 @@ client.on('messageCreate', async (message) => {
     }
   }
 
+  // ── Guess game: check if the message is a valid number guess ──────────────
+  const guessData = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
+  if (guessData && /^\d+$/.test(message.content.trim())) {
+    const guessed = parseInt(message.content.trim());
+    if (guessed === guessData.number) {
+      await db.delete(`guess_${message.guild.id}_${message.channel.id}`);
+      const e = new EmbedBuilder()
+        .setTitle('🎉 Bonne Réponse!')
+        .setDescription(`<@${message.author.id}> **Gg U Guessed the Correct Number!** 🏆\nLe nombre était **${guessData.number}**!`)
+        .setColor(COLORS.success)
+        .setTimestamp();
+      await message.channel.send({ content: `<@${message.author.id}>`, embeds: [e] });
+      return; // Pas besoin de continuer vers les commandes
+    }
+  }
+
   const guildPrefix = (await db.get(`prefix_${message.guild.id}`)) || PREFIX;
 
-  // Sticky messages: repost at the bottom of the channel after every new message
+  // Sticky messages
   const stickyData = await db.get(`sticky_${message.guild.id}_${message.channel.id}`);
   if (stickyData) repostSticky(message.channel, message.guild.id);
 
@@ -2022,23 +2134,21 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// ─── Event: Logs (Carl-bot style) ─────────────────────────────────────────────
+// ─── Event: Logs ──────────────────────────────────────────────────────────────
 
-// 🗑 Deleted messages
 client.on('messageDelete', async (message) => {
   if (!message.guild || message.author?.bot) return;
   const channel = await getLogChannel(message.guild);
   if (!channel) return;
   const e = logEmbed('🗑️ Message Deleted')
     .addFields(
-      { name: 'Author', value: message.author ? `${message.author.tag} (${message.author.id})` : 'Unknown', inline: false },
+      { name: 'Author',  value: message.author ? `${message.author.tag} (${message.author.id})` : 'Unknown', inline: false },
       { name: 'Channel', value: `<#${message.channelId}>`, inline: false },
       { name: 'Content', value: message.content?.slice(0, 1000) || '*No text content (embed/attachment)*', inline: false },
     );
   channel.send({ embeds: [e] }).catch(() => {});
 });
 
-// 🗑 Purged / bulk deleted messages
 client.on('messageDeleteBulk', async (messages) => {
   const first = messages.first();
   if (!first?.guild) return;
@@ -2047,12 +2157,11 @@ client.on('messageDeleteBulk', async (messages) => {
   const e = logEmbed('🧹 Messages Purged')
     .addFields(
       { name: 'Channel', value: `<#${first.channelId}>`, inline: true },
-      { name: 'Amount', value: `${messages.size}`, inline: true },
+      { name: 'Amount',  value: `${messages.size}`,      inline: true },
     );
   channel.send({ embeds: [e] }).catch(() => {});
 });
 
-// ✏️ Edited messages
 client.on('messageUpdate', async (oldMessage, newMessage) => {
   if (!newMessage.guild || newMessage.author?.bot) return;
   if (oldMessage.content === newMessage.content) return;
@@ -2060,17 +2169,16 @@ client.on('messageUpdate', async (oldMessage, newMessage) => {
   if (!channel) return;
   const e = logEmbed('✏️ Message Edited', COLORS.warning)
     .addFields(
-      { name: 'Author', value: `${newMessage.author.tag} (${newMessage.author.id})`, inline: false },
+      { name: 'Author',  value: `${newMessage.author.tag} (${newMessage.author.id})`, inline: false },
       { name: 'Channel', value: `<#${newMessage.channelId}>`, inline: false },
-      { name: 'Before', value: oldMessage.content?.slice(0, 500) || '*Empty*', inline: false },
-      { name: 'After', value: newMessage.content?.slice(0, 500) || '*Empty*', inline: false },
+      { name: 'Before',  value: oldMessage.content?.slice(0, 500) || '*Empty*', inline: false },
+      { name: 'After',   value: newMessage.content?.slice(0, 500) || '*Empty*', inline: false },
     );
   channel.send({ embeds: [e] }).catch(() => {});
 });
 
-// 📥 Member joins
 client.on('guildMemberAdd', async (member) => {
-  // ── Invite tracking: figure out which invite was used ──────────────────────
+  // Invite tracking
   try {
     const guild = member.guild;
     const before = invitesCache.get(guild.id) || new Collection();
@@ -2085,13 +2193,11 @@ client.on('guildMemberAdd', async (member) => {
         if (!usedInvite && prev && inv.uses > prev.uses) {
           usedInvite = { code: inv.code, inviterId: inv.inviter?.id || null };
         }
-        // Brand new invite created and instantly used once (rare race condition)
         if (!usedInvite && !prev && inv.uses === 1) {
           usedInvite = { code: inv.code, inviterId: inv.inviter?.id || null };
         }
       });
 
-      // Vanity URL check (if no normal invite matched)
       if (!usedInvite && guild.vanityURLCode) {
         try {
           const vanity = await guild.fetchVanityData();
@@ -2109,9 +2215,8 @@ client.on('guildMemberAdd', async (member) => {
     invitesCache.set(guild.id, after);
 
     if (usedInvite && usedInvite.inviterId) {
-      const isFake = Date.now() - member.user.createdTimestamp < 7 * 24 * 60 * 60 * 1000; // < 7 days old
+      const isFake = Date.now() - member.user.createdTimestamp < 7 * 24 * 60 * 60 * 1000;
       await addInviteStat(guild.id, usedInvite.inviterId, isFake ? 'fake' : 'regular', 1);
-      // Remember which inviter (and whether it counted as fake) gets credit/debit if this member later leaves
       await db.set(`invitejoin_${guild.id}_${member.id}`, { inviterId: usedInvite.inviterId, fake: isFake });
     }
   } catch (err) {
@@ -2138,34 +2243,33 @@ client.on('guildMemberAdd', async (member) => {
       }
     }
   }
+
   // Auto-role
   const autorole = await db.get(`autorole_${member.guild.id}`);
   if (autorole) {
     const role = member.guild.roles.cache.get(autorole);
     if (role) member.roles.add(role).catch(() => {});
   }
+
   // Log
   const channel = await getLogChannel(member.guild);
   if (channel) {
     const e = logEmbed('📥 Member Joined', COLORS.success)
       .setThumbnail(member.user.displayAvatarURL())
       .addFields(
-        { name: 'User', value: `${member.user.tag} (${member.id})`, inline: false },
+        { name: 'User',            value: `${member.user.tag} (${member.id})`, inline: false },
         { name: 'Account created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: false },
       );
     channel.send({ embeds: [e] }).catch(() => {});
   }
 });
 
-// 🚪 Member leaves
 client.on('guildMemberRemove', async (member) => {
-  // ── Invite tracking: if this member was credited to an inviter, mark it "left" ──
+  // Invite tracking: mark as "left"
   try {
     const joinKey = `invitejoin_${member.guild.id}_${member.id}`;
     const joinData = await db.get(joinKey);
     if (joinData && joinData.inviterId) {
-      // Only move regular invites into "left"; fake-credited joins are already
-      // excluded from the total, so leaving doesn't need to double-subtract.
       if (!joinData.fake) {
         await addInviteStat(member.guild.id, joinData.inviterId, 'left', 1);
       }
@@ -2195,31 +2299,30 @@ client.on('guildMemberRemove', async (member) => {
       }
     }
   }
+
   const channel = await getLogChannel(member.guild);
   if (channel) {
     const e = logEmbed('📤 Member Left', COLORS.warning)
       .setThumbnail(member.user.displayAvatarURL())
       .addFields(
-        { name: 'User', value: `${member.user.tag} (${member.id})`, inline: false },
+        { name: 'User',  value: `${member.user.tag} (${member.id})`, inline: false },
         { name: 'Roles', value: member.roles?.cache?.filter(r => r.id !== member.guild.id).map(r => r.name).join(', ') || 'None', inline: false },
       );
     channel.send({ embeds: [e] }).catch(() => {});
   }
 });
 
-// 🔨 Bans
 client.on('guildBanAdd', async (ban) => {
   const channel = await getLogChannel(ban.guild);
   if (!channel) return;
   const e = logEmbed('🔨 Member Banned', COLORS.mod)
     .addFields(
-      { name: 'User', value: `${ban.user.tag} (${ban.user.id})`, inline: false },
-      { name: 'Reason', value: ban.reason || 'None', inline: false },
+      { name: 'User',   value: `${ban.user.tag} (${ban.user.id})`, inline: false },
+      { name: 'Reason', value: ban.reason || 'None',               inline: false },
     );
   channel.send({ embeds: [e] }).catch(() => {});
 });
 
-// ✅ Unbans
 client.on('guildBanRemove', async (ban) => {
   const channel = await getLogChannel(ban.guild);
   if (!channel) return;
@@ -2228,7 +2331,7 @@ client.on('guildBanRemove', async (ban) => {
   channel.send({ embeds: [e] }).catch(() => {});
 });
 
-// 💎 Server boost announcements
+// Boost announcements
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   if (!oldMember.premiumSince && newMember.premiumSince) {
     const boostChannelId = await db.get(`boost_${newMember.guild.id}`);
@@ -2245,256 +2348,21 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   }
 });
 
-// 🎭 Role changes, nicknames, timeouts
+// Role changes, nicknames, timeouts
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   const channel = await getLogChannel(newMember.guild);
   if (!channel) return;
 
-  // Nickname change
   if (oldMember.nickname !== newMember.nickname) {
     const e = logEmbed('📝 Nickname Updated', COLORS.warning)
       .addFields(
-        { name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false },
-        { name: 'Before', value: oldMember.nickname || '*None*', inline: true },
-        { name: 'After', value: newMember.nickname || '*None*', inline: true },
+        { name: 'User',   value: `${newMember.user.tag} (${newMember.id})`, inline: false },
+        { name: 'Before', value: oldMember.nickname || '*None*',             inline: true  },
+        { name: 'After',  value: newMember.nickname || '*None*',             inline: true  },
       );
     channel.send({ embeds: [e] }).catch(() => {});
   }
 
-  // Role changes
-  const oldRoles = oldMember.roles.cache;
-  const newRoles = newMember.roles.cache;
-  const addedRoles = newRoles.filter(r => !oldRoles.has(r.id));
-  const removedRoles = oldRoles.filter(r => !newRoles.has(r.id));
-  if (addedRoles.size > 0 || removedRoles.size > 0) {
-    const e = logEmbed('🎭 Member Roles Updated', COLORS.info)
-      .addFields({ name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false });
-    if (addedRoles.size > 0) e.addFields({ name: '➕ Added', value: addedRoles.map(r => r.name).join(', '), inline: false });
-    if (removedRoles.size > 0) e.addFields({ name: '➖ Removed', value: removedRoles.map(r => r.name).join(', '), inline: false });
-    channel.send({ embeds: [e] }).catch(() => {});
-  }
-
-  // Timeout changes
-  const oldTimeout = oldMember.communicationDisabledUntilTimestamp;
-  const newTimeout = newMember.communicationDisabledUntilTimestamp;
-  if (oldTimeout !== newTimeout) {
-    if (newTimeout && newTimeout > Date.now()) {
-      const e = logEmbed('🔇 Member Timed Out', COLORS.mod)
-        .addFields(
-          { name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false },
-          { name: 'Until', value: `<t:${Math.floor(newTimeout / 1000)}:F>`, inline: false },
-        );
-      channel.send({ embeds: [e] }).catch(() => {});
-    } else if (oldTimeout) {
-      const e = logEmbed('🔊 Timeout Removed', COLORS.success)
-        .addFields({ name: 'User', value: `${newMember.user.tag} (${newMember.id})`, inline: false });
-      channel.send({ embeds: [e] }).catch(() => {});
-    }
-  }
-});
-
-// 👤 Username / avatar changes (global, so check shared guilds)
-client.on('userUpdate', async (oldUser, newUser) => {
-  for (const guild of client.guilds.cache.values()) {
-    const member = guild.members.cache.get(newUser.id);
-    if (!member) continue;
-    const channel = await getLogChannel(guild);
-    if (!channel) continue;
-
-    if (oldUser.username !== newUser.username) {
-      const e = logEmbed('👤 Username Updated', COLORS.warning)
-        .addFields(
-          { name: 'User', value: `${newUser.id}`, inline: false },
-          { name: 'Before', value: oldUser.username, inline: true },
-          { name: 'After', value: newUser.username, inline: true },
-        );
-      channel.send({ embeds: [e] }).catch(() => {});
-    }
-
-    if (oldUser.displayAvatarURL() !== newUser.displayAvatarURL()) {
-      const e = logEmbed('🖼️ Avatar Updated', COLORS.warning)
-        .setThumbnail(newUser.displayAvatarURL())
-        .addFields({ name: 'User', value: `${newUser.tag} (${newUser.id})`, inline: false });
-      channel.send({ embeds: [e] }).catch(() => {});
-    }
-  }
-});
-
-// 🔊 Voice activity
-client.on('voiceStateUpdate', async (oldState, newState) => {
-  const guild = newState.guild || oldState.guild;
-  const channel = await getLogChannel(guild);
-  if (!channel) return;
-  const member = newState.member || oldState.member;
-
-  if (!oldState.channelId && newState.channelId) {
-    const e = logEmbed('🔊 Voice Join', COLORS.success)
-      .addFields(
-        { name: 'User', value: `${member.user.tag}`, inline: true },
-        { name: 'Channel', value: `<#${newState.channelId}>`, inline: true },
-      );
-    channel.send({ embeds: [e] }).catch(() => {});
-  } else if (oldState.channelId && !newState.channelId) {
-    const e = logEmbed('🔇 Voice Leave', COLORS.warning)
-      .addFields(
-        { name: 'User', value: `${member.user.tag}`, inline: true },
-        { name: 'Channel', value: `<#${oldState.channelId}>`, inline: true },
-      );
-    channel.send({ embeds: [e] }).catch(() => {});
-  } else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
-    const e = logEmbed('🔀 Voice Move', COLORS.info)
-      .addFields(
-        { name: 'User', value: `${member.user.tag}`, inline: true },
-        { name: 'From', value: `<#${oldState.channelId}>`, inline: true },
-        { name: 'To', value: `<#${newState.channelId}>`, inline: true },
-      );
-    channel.send({ embeds: [e] }).catch(() => {});
-  }
-});
-
-// 📁 Channel create/update/delete
-client.on('channelCreate', async (ch) => {
-  if (!ch.guild) return;
-  const channel = await getLogChannel(ch.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('📁 Channel Created', COLORS.success).addFields({ name: 'Channel', value: `${ch.name} (${ch.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('channelDelete', async (ch) => {
-  if (!ch.guild) return;
-  const channel = await getLogChannel(ch.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🗑️ Channel Deleted', COLORS.mod).addFields({ name: 'Channel', value: `${ch.name} (${ch.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('channelUpdate', async (oldCh, newCh) => {
-  if (!newCh.guild) return;
-  const channel = await getLogChannel(newCh.guild);
-  if (!channel) return;
-  if (oldCh.name === newCh.name && oldCh.topic === newCh.topic) return;
-  const e = logEmbed('🔧 Channel Updated', COLORS.warning)
-    .addFields({ name: 'Channel', value: `<#${newCh.id}>`, inline: false });
-  if (oldCh.name !== newCh.name) e.addFields({ name: 'Name', value: `${oldCh.name} → ${newCh.name}`, inline: false });
-  if (oldCh.topic !== newCh.topic) e.addFields({ name: 'Topic', value: `${oldCh.topic || '*None*'} → ${newCh.topic || '*None*'}`, inline: false });
-  channel.send({ embeds: [e] }).catch(() => {});
-});
-
-// 🎭 Role create/update/delete
-client.on('roleCreate', async (role) => {
-  const channel = await getLogChannel(role.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🎭 Role Created', COLORS.success).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('roleDelete', async (role) => {
-  const channel = await getLogChannel(role.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🗑️ Role Deleted', COLORS.mod).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('roleUpdate', async (oldRole, newRole) => {
-  const channel = await getLogChannel(newRole.guild);
-  if (!channel) return;
-  if (oldRole.name === newRole.name && oldRole.color === newRole.color && oldRole.permissions.bitfield === newRole.permissions.bitfield) return;
-  const e = logEmbed('🔧 Role Updated', COLORS.warning)
-    .addFields({ name: 'Role', value: `<@&${newRole.id}>`, inline: false });
-  if (oldRole.name !== newRole.name) e.addFields({ name: 'Name', value: `${oldRole.name} → ${newRole.name}`, inline: false });
-  if (oldRole.hexColor !== newRole.hexColor) e.addFields({ name: 'Color', value: `${oldRole.hexColor} → ${newRole.hexColor}`, inline: false });
-  channel.send({ embeds: [e] }).catch(() => {});
-});
-
-// 🏠 Server updates
-client.on('guildUpdate', async (oldGuild, newGuild) => {
-  const channel = await getLogChannel(newGuild);
-  if (!channel) return;
-  const e = logEmbed('🏠 Server Updated', COLORS.warning);
-  let changed = false;
-  if (oldGuild.name !== newGuild.name) { e.addFields({ name: 'Name', value: `${oldGuild.name} → ${newGuild.name}`, inline: false }); changed = true; }
-  if (oldGuild.iconURL() !== newGuild.iconURL()) { e.addFields({ name: 'Icon', value: 'Server icon changed', inline: false }); e.setThumbnail(newGuild.iconURL()); changed = true; }
-  if (changed) channel.send({ embeds: [e] }).catch(() => {});
-});
-
-// 😀 Emoji create/update/delete
-client.on('emojiCreate', async (emoji) => {
-  const channel = await getLogChannel(emoji.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('😀 Emoji Added', COLORS.success).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false }).setThumbnail(emoji.imageURL())] }).catch(() => {});
-});
-
-client.on('emojiDelete', async (emoji) => {
-  const channel = await getLogChannel(emoji.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🗑️ Emoji Removed', COLORS.mod).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false })] }).catch(() => {});
-});
-
-client.on('emojiUpdate', async (oldEmoji, newEmoji) => {
-  if (oldEmoji.name === newEmoji.name) return;
-  const channel = await getLogChannel(newEmoji.guild);
-  if (!channel) return;
-  channel.send({ embeds: [logEmbed('🔧 Emoji Renamed', COLORS.warning).addFields({ name: 'Before', value: oldEmoji.name, inline: true }, { name: 'After', value: newEmoji.name, inline: true })] }).catch(() => {});
-});
-
-// ─── Event: Invite create/delete (keep cache fresh) ──────────────────────────
-client.on('inviteCreate', async (invite) => {
-  const map = invitesCache.get(invite.guild.id) || new Collection();
-  map.set(invite.code, { uses: invite.uses || 0, inviterId: invite.inviter?.id || null });
-  invitesCache.set(invite.guild.id, map);
-});
-
-client.on('inviteDelete', async (invite) => {
-  const map = invitesCache.get(invite.guild.id);
-  if (map) map.delete(invite.code);
-});
-
-// ─── Event: Reactions (reaction roles) ───────────────────────────────────────
-client.on('messageReactionAdd', async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.partial) await reaction.fetch().catch(() => {});
-  const data = await db.get(`rr_${reaction.message.id}`);
-  if (!data) return;
-  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
-    const guild = reaction.message.guild;
-    const member = guild.members.cache.get(user.id);
-    const role = guild.roles.cache.get(data.roleId);
-    if (member && role) member.roles.add(role).catch(() => {});
-  }
-});
-
-client.on('messageReactionRemove', async (reaction, user) => {
-  if (user.bot) return;
-  if (reaction.partial) await reaction.fetch().catch(() => {});
-  const data = await db.get(`rr_${reaction.message.id}`);
-  if (!data) return;
-  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
-    const guild = reaction.message.guild;
-    const member = guild.members.cache.get(user.id);
-    const role = guild.roles.cache.get(data.roleId);
-    if (member && role) member.roles.remove(role).catch(() => {});
-  }
-});
-
-// ─── Ready ────────────────────────────────────────────────────────────────────
-client.once('ready', async () => {
-  const count = Object.keys(commands).length;
-  console.log(`
-╔══════════════════════════════════════╗
-║   ✅ ${client.user.tag} connected!        ║
-║   📡 ${client.guilds.cache.size} server(s)               ║
-║   📦 ${count} commands loaded            ║
-║   🔤 Prefix: ${PREFIX}                       ║
-╚══════════════════════════════════════╝
-  `);
-  client.user.setActivity(`${PREFIX}help | ${count} commands`, { type: 3 });
-
-  // Build the initial invite cache for every guild so joins can be diffed correctly
-  for (const guild of client.guilds.cache.values()) {
-    await cacheGuildInvites(guild);
-  }
-
-  // Giveaway auto-end checker
-  checkGiveaways();
-  setInterval(checkGiveaways, 30000);
-});
-
-// ─── Login ────────────────────────────────────────────────────────────────────
-client.login(TOKEN);
+  const oldRoles     = oldMember.roles.cache;
+  const newRoles     = newMember.roles.cache;
+  const addedRoles   = newRoles.filter(r => !oldRoles.has(r.id)

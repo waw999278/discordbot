@@ -639,19 +639,30 @@ const commands = {
 
   check: {
     category: 'Invites',
-    description: 'Vérifie qui a invité un membre sur le serveur',
+    description: 'Checks who invited a mentioned member, and whether they joined through a personal invite or the vanity/custom link',
     usage: '!check @member',
     async execute(message, args) {
       const user = message.mentions.users.first();
-      if (!user) return message.reply({ embeds: [errorEmbed('Mentionne un membre. Usage: `!check @member`')] });
+      if (!user) return message.reply({ embeds: [errorEmbed('Please mention a member. Usage: `!check @member`')] });
 
       const joinData = await db.get(`invitejoin_${message.guild.id}_${user.id}`);
-      if (!joinData || !joinData.inviterId) {
+      if (!joinData) {
         return message.reply({
           embeds: [embed(
-            '📨 Invitation',
-            `Aucune donnée d'invitation trouvée pour **${user.tag}**.\n*(Peut-être rejoint avant que le bot soit actif, ou via le lien vanity)*`,
+            '📨 Invite Check',
+            `No invite data found for **${user.tag}**.\n*(They may have joined before the bot was active.)*`,
             COLORS.info
+          )]
+        });
+      }
+
+      // Joined via the server's vanity/custom invite link — not a personal invite
+      if (joinData.vanity || !joinData.inviterId) {
+        return message.reply({
+          embeds: [embed(
+            '📨 Invite Check',
+            `**${user.tag}** joined using the server's **vanity/custom invite link**${joinData.code ? ` (\`${joinData.code}\`)` : ''}, not a personal invite from a specific member.`,
+            COLORS.warning
           )]
         });
       }
@@ -659,17 +670,18 @@ const commands = {
       const inviter = await client.users.fetch(joinData.inviterId).catch(() => null);
       const stats = await getInviteStats(message.guild.id, joinData.inviterId);
       const total = totalInvites(stats);
-      const type = joinData.fake ? '⚠️ Fake (compte < 7 jours)' : '✅ Regular';
+      const type = joinData.fake ? '⚠️ Fake (account < 7 days old)' : '✅ Regular';
 
       const e = new EmbedBuilder()
-        .setAuthor({ name: `Invitation de ${user.tag}`, iconURL: user.displayAvatarURL() })
+        .setAuthor({ name: `Invite info for ${user.tag}`, iconURL: user.displayAvatarURL() })
         .setColor(COLORS.info)
         .setThumbnail(user.displayAvatarURL({ dynamic: true }))
         .setDescription(
-          `**${user.tag}** a été invité par : **${inviter ? inviter.tag : `<@${joinData.inviterId}>`}**\n` +
-          `Type d'invitation : ${type}\n\n` +
-          `**Stats de l'inviteur :**\n` +
-          `Total : **${total}** | Regular : **${stats.regular}** | Left : **${stats.left}** | Fake : **${stats.fake}** | Bonus : **${stats.bonus}**`
+          `**${user.tag}** was invited by: **${inviter ? inviter.tag : `<@${joinData.inviterId}>`}**\n` +
+          `Invite used: \`${joinData.code || 'Unknown'}\` (personal invite link, not vanity/custom)\n` +
+          `Join type: ${type}\n\n` +
+          `**Inviter's stats:**\n` +
+          `Total: **${total}** | Regular: **${stats.regular}** | Left: **${stats.left}** | Fake: **${stats.fake}** | Bonus: **${stats.bonus}**`
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
@@ -1313,31 +1325,50 @@ const commands = {
     }
   },
 
-  // ── Guess game (Owner choisit un nombre secret) ────────────────────────────
+  // ── Guess game (Owner is asked via DM to pick a secret number) ────────────
   guess: {
     category: 'Fun',
-    description: '(Owner) Lance un jeu de devinette avec un nombre secret que toi seul connais',
-    usage: '!guess [nombre]',
+    description: '(Owner) Starts a guessing game — the bot will DM you asking to choose the secret number',
+    usage: '!guess',
     async execute(message, args) {
       if (message.author.id !== OWNER_ID)
-        return message.reply({ embeds: [errorEmbed('Cette commande est réservée au propriétaire du bot.')] });
-
-      const number = parseInt(args[0]);
-      if (isNaN(number))
-        return message.reply({ embeds: [errorEmbed('Usage: `!guess [nombre]` — Exemple: `!guess 42`')] });
+        return message.reply({ embeds: [errorEmbed('This command is reserved for the bot owner.')] });
 
       const existing = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
       if (existing)
-        return message.reply({ embeds: [errorEmbed('Un jeu de devinette est déjà en cours dans ce channel! Utilisez `!stoguess` pour l\'arrêter.')] });
+        return message.reply({ embeds: [errorEmbed('A guessing game is already running in this channel! Use `!stopguess` to stop it.')] });
 
-      // Envoyer le nombre en DM à l'owner (invisible au reste du serveur)
+      let dmChannel;
       try {
-        await message.author.send({
-          embeds: [embed('🎯 Nombre Secret', `Le nombre à deviner est **${number}**.\nLe premier qui l\'écrit dans <#${message.channel.id}> gagne!`, COLORS.xp)]
+        dmChannel = await message.author.createDM();
+        await dmChannel.send({
+          embeds: [embed('🎯 Choose a Number', 'Please reply here with the secret number you want members to guess.\n*(You have 60 seconds — this number won\'t be shown anywhere else.)*', COLORS.xp)]
         });
       } catch {
-        // DMs fermés, on continue quand même
+        return message.reply({ embeds: [errorEmbed('I couldn\'t send you a DM. Please enable DMs from server members and try again.')] });
       }
+
+      message.reply({ embeds: [embed('📬 Check your DMs', 'I\'ve sent you a direct message — please choose the secret number there.', COLORS.info)] });
+
+      let collected;
+      try {
+        collected = await dmChannel.awaitMessages({
+          filter: m => m.author.id === OWNER_ID && /^\d+$/.test(m.content.trim()),
+          max: 1,
+          time: 60000,
+          errors: ['time'],
+        });
+      } catch {
+        return dmChannel.send({ embeds: [errorEmbed('You didn\'t reply with a valid number in time. Game cancelled.')] }).catch(() => {});
+      }
+
+      // Make sure nothing started another game in this channel while we waited
+      const stillExisting = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
+      if (stillExisting) {
+        return dmChannel.send({ embeds: [errorEmbed('A guessing game was already started in that channel while waiting for your reply.')] }).catch(() => {});
+      }
+
+      const number = parseInt(collected.first().content.trim());
 
       await db.set(`guess_${message.guild.id}_${message.channel.id}`, {
         number,
@@ -1345,22 +1376,21 @@ const commands = {
         range: false,
       });
 
-      // Supprimer le message de l'owner pour cacher le nombre
-      await message.delete().catch(() => {});
+      await dmChannel.send({ embeds: [successEmbed(`Game started! The secret number **${number}** is now live in <#${message.channel.id}>.`)] }).catch(() => {});
 
       const e = new EmbedBuilder()
-        .setTitle('🎯 Jeu de Devinette!')
-        .setDescription(`**${message.author.username}** a choisi un nombre secret!\nDevinez le bon nombre pour gagner! 🏆\n\n*Écrivez simplement un nombre dans ce channel.*`)
+        .setTitle('🎯 Guessing Game!')
+        .setDescription(`**${message.author.username}** has chosen a secret number!\nGuess the right number to win! 🏆\n\n*Simply type a number in this channel.*`)
         .setColor(COLORS.xp)
         .setTimestamp();
       message.channel.send({ embeds: [e] });
     }
   },
 
-  // ── Guess game (Bot choisit un nombre aléatoire 1-100) ───────────────────
+  // ── Guess game (Bot picks a random number 1-100) ──────────────────────────
   guessrange: {
     category: 'Fun',
-    description: 'Le bot choisit un nombre aléatoire entre 1 et 100, le premier qui le devine gagne',
+    description: 'The bot picks a random number between 1 and 100 — first to guess it wins',
     usage: '!guessrange',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
@@ -1368,7 +1398,7 @@ const commands = {
 
       const existing = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
       if (existing)
-        return message.reply({ embeds: [errorEmbed('Un jeu de devinette est déjà en cours dans ce channel! Utilisez `!stopguess` pour l\'arrêter.')] });
+        return message.reply({ embeds: [errorEmbed('A guessing game is already running in this channel! Use `!stopguess` to stop it.')] });
 
       const number = Math.floor(Math.random() * 100) + 1;
       await db.set(`guess_${message.guild.id}_${message.channel.id}`, {
@@ -1378,18 +1408,18 @@ const commands = {
       });
 
       const e = new EmbedBuilder()
-        .setTitle('🎲 Devinette Aléatoire!')
-        .setDescription(`Le bot a choisi un nombre entre **1** et **100**!\nSoyez le premier à trouver le bon nombre pour gagner! 🏆\n\n*Écrivez simplement un nombre dans ce channel.*`)
+        .setTitle('🎲 Random Guessing Game!')
+        .setDescription(`The bot has chosen a number between **1** and **100**!\nBe the first to guess it right to win! 🏆\n\n*Simply type a number in this channel.*`)
         .setColor(COLORS.xp)
         .setTimestamp();
       message.reply({ embeds: [e] });
     }
   },
 
-  // ── Stopguess (arrêter le jeu sans gagnant) ───────────────────────────────
+  // ── Stopguess (stop the game without a winner) ─────────────────────────────
   stopguess: {
     category: 'Fun',
-    description: 'Arrête le jeu de devinette en cours dans ce channel',
+    description: 'Stops the currently running guessing game in this channel',
     usage: '!stopguess',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
@@ -1397,10 +1427,10 @@ const commands = {
 
       const existing = await db.get(`guess_${message.guild.id}_${message.channel.id}`);
       if (!existing)
-        return message.reply({ embeds: [errorEmbed('Aucun jeu de devinette en cours dans ce channel.')] });
+        return message.reply({ embeds: [errorEmbed('No guessing game is currently running in this channel.')] });
 
       await db.delete(`guess_${message.guild.id}_${message.channel.id}`);
-      message.reply({ embeds: [embed('🛑 Jeu Arrêté', `Le jeu de devinette a été arrêté. Le nombre était **${existing.number}**.`, COLORS.warning)] });
+      message.reply({ embeds: [embed('🛑 Game Stopped', `The guessing game has been stopped. The number was **${existing.number}**.`, COLORS.warning)] });
     }
   },
 
@@ -2099,12 +2129,12 @@ client.on('messageCreate', async (message) => {
     if (guessed === guessData.number) {
       await db.delete(`guess_${message.guild.id}_${message.channel.id}`);
       const e = new EmbedBuilder()
-        .setTitle('🎉 Bonne Réponse!')
-        .setDescription(`<@${message.author.id}> **Gg U Guessed the Correct Number!** 🏆\nLe nombre était **${guessData.number}**!`)
+        .setTitle('🎉 Correct Answer!')
+        .setDescription(`<@${message.author.id}> **Gg U Guessed the Correct Number!** 🏆\nThe number was **${guessData.number}**!`)
         .setColor(COLORS.success)
         .setTimestamp();
       await message.channel.send({ content: `<@${message.author.id}>`, embeds: [e] });
-      return; // Pas besoin de continuer vers les commandes
+      return; // No need to continue to command handling
     }
   }
 
@@ -2217,7 +2247,10 @@ client.on('guildMemberAdd', async (member) => {
     if (usedInvite && usedInvite.inviterId) {
       const isFake = Date.now() - member.user.createdTimestamp < 7 * 24 * 60 * 60 * 1000;
       await addInviteStat(guild.id, usedInvite.inviterId, isFake ? 'fake' : 'regular', 1);
-      await db.set(`invitejoin_${guild.id}_${member.id}`, { inviterId: usedInvite.inviterId, fake: isFake });
+      await db.set(`invitejoin_${guild.id}_${member.id}`, { inviterId: usedInvite.inviterId, fake: isFake, code: usedInvite.code, vanity: false });
+    } else if (usedInvite && usedInvite.vanity) {
+      // Joined through the server's vanity/custom invite link — not tied to a specific inviter
+      await db.set(`invitejoin_${guild.id}_${member.id}`, { inviterId: null, fake: false, code: usedInvite.code, vanity: true });
     }
   } catch (err) {
     console.error('[Invite tracking] Error:', err);

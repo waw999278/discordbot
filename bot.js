@@ -147,6 +147,64 @@ async function generateGoodbyeImage() {
   return bg.getBufferAsync(Jimp.MIME_PNG);
 }
 
+// ─── Generated Level Up Banner (gold text on black, pure JS via Jimp) ───────
+// Shows only the level reached — no rank, no XP, no coins, no role color.
+async function generateLevelUpImage(level) {
+  const WIDTH = 1000, HEIGHT = 350;
+  const GOLD = { r: 0xD4, g: 0xAF, b: 0x37 };
+
+  const bg = new Jimp(WIDTH, HEIGHT, 0x000000FF);
+
+  // Gold border
+  const borderThickness = 6;
+  bg.scan(0, 0, WIDTH, HEIGHT, function (x, y, idx) {
+    if (x < borderThickness || x >= WIDTH - borderThickness || y < borderThickness || y >= HEIGHT - borderThickness) {
+      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx + 1] = GOLD.g;
+      this.bitmap.data[idx + 2] = GOLD.b;
+      this.bitmap.data[idx + 3] = 255;
+    }
+  });
+
+  // "LEVEL UP!" small caption on top
+  const captionFont = await Jimp.loadFont(Jimp.FONT_SANS_64_WHITE);
+  const captionLayer = new Jimp(WIDTH, 130, 0x00000000);
+  captionLayer.print(captionFont, 0, 0, {
+    text: 'LEVEL UP!',
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
+  }, WIDTH, 130);
+  captionLayer.scan(0, 0, captionLayer.bitmap.width, captionLayer.bitmap.height, function (x, y, idx) {
+    const alpha = this.bitmap.data[idx + 3];
+    if (alpha > 0) {
+      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx + 1] = GOLD.g;
+      this.bitmap.data[idx + 2] = GOLD.b;
+    }
+  });
+  bg.composite(captionLayer, 0, 30);
+
+  // Big level number underneath
+  const levelFont = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE);
+  const levelLayer = new Jimp(WIDTH, 200, 0x00000000);
+  levelLayer.print(levelFont, 0, 0, {
+    text: `LEVEL ${level}`,
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
+  }, WIDTH, 200);
+  levelLayer.scan(0, 0, levelLayer.bitmap.width, levelLayer.bitmap.height, function (x, y, idx) {
+    const alpha = this.bitmap.data[idx + 3];
+    if (alpha > 0) {
+      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx + 1] = GOLD.g;
+      this.bitmap.data[idx + 2] = GOLD.b;
+    }
+  });
+  bg.composite(levelLayer, 0, 150);
+
+  return bg.getBufferAsync(Jimp.MIME_PNG);
+}
+
 function parseDuration(str) {
   try { return ms(str); } catch { return null; }
 }
@@ -1170,7 +1228,7 @@ const commands = {
 
   setlevel: {
     category: 'Config',
-    description: 'Channel where level-up announcements (1 to 100) are sent',
+    description: 'Channel where level-up announcements (1 to 100) are sent — pings the member + gold/black level banner',
     usage: '!setlevel #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1539,7 +1597,25 @@ client.on('messageCreate', async (message) => {
     if (result.leveledUp) {
       const levelupChannel = await db.get(`levelup_${message.guild.id}`);
       const channel = levelupChannel ? message.guild.channels.cache.get(levelupChannel) : message.channel;
-      channel?.send({ embeds: [embed('⭐ Level up!', `<@${message.author.id}> reached **level ${result.level} / ${MAX_LEVEL}**! 🎉`, COLORS.xp)] });
+      if (channel) {
+        // mentionText is sent in `content` (not just the embed) so the member
+        // actually gets pinged — embed-only mentions don't trigger a notification.
+        const mentionText = `<@${message.author.id}>`;
+        try {
+          const buffer = await generateLevelUpImage(result.level);
+          const attachment = new AttachmentBuilder(buffer, { name: 'levelup.png' });
+          const e = new EmbedBuilder()
+            .setTitle('⭐ Level Up!')
+            .setDescription(`${mentionText} reached level **${result.level}**!`)
+            .setColor(0xD4AF37)
+            .setImage('attachment://levelup.png')
+            .setTimestamp();
+          channel.send({ content: mentionText, embeds: [e], files: [attachment] }).catch(() => {});
+        } catch (err) {
+          console.error('[Level up image] Error:', err);
+          channel.send({ content: mentionText, embeds: [embed('⭐ Level up!', `${mentionText} reached **level ${result.level} / ${MAX_LEVEL}**! 🎉`, COLORS.xp)] }).catch(() => {});
+        }
+      }
     }
   }
 

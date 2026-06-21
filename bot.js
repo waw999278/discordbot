@@ -220,6 +220,35 @@ function formatDuration(ms_val) {
   return `${s}s`;
 }
 
+// ─── Sticky Messages (StickyBot-style) ───────────────────────────────────────
+const MIDDLEMAN_CHANNEL_ID = '1513224477792534629';
+
+// Builds the sticky embed, auto-mentioning whichever channel it's posted in.
+function buildStickyMessage(channelId) {
+  return new EmbedBuilder()
+    .setDescription(`Welcome to the trading room <#${channelId}>\nTo facilitate your trades, we offer a middleman system available 24/7 In <#${MIDDLEMAN_CHANNEL_ID}>`)
+    .setColor(0xD4AF37)
+    .setTimestamp();
+}
+
+// Deletes the previous sticky post (if it still exists) and sends a fresh one
+// at the bottom of the channel, then saves the new message id.
+async function repostSticky(channel, guildId) {
+  const key = `sticky_${guildId}_${channel.id}`;
+  const data = await db.get(key);
+  if (!data) return;
+  try {
+    if (data.messageId) {
+      const oldMsg = await channel.messages.fetch(data.messageId).catch(() => null);
+      if (oldMsg) await oldMsg.delete().catch(() => {});
+    }
+    const newMsg = await channel.send({ embeds: [buildStickyMessage(channel.id)] });
+    await db.set(key, { channelId: channel.id, messageId: newMsg.id });
+  } catch (err) {
+    console.error('[Sticky] Error:', err);
+  }
+}
+
 // ─── XP System (capped at level 100) ──────────────────────────────────────────
 const MAX_LEVEL = 100;
 
@@ -1239,6 +1268,51 @@ const commands = {
     }
   },
 
+  sticky: {
+    category: 'Config',
+    description: 'Posts a sticky trading-room message in one or more channels (StickyBot-style: auto-reposted after every new message)',
+    usage: '!sticky #channel1 #channel2 ...',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const channels = [...message.mentions.channels.values()];
+      if (!channels.length) return message.reply({ embeds: [errorEmbed('Mention at least one channel. Usage: !sticky #channel1 #channel2 ...')] });
+
+      const results = [];
+      for (const ch of channels) {
+        try {
+          const sentMsg = await ch.send({ embeds: [buildStickyMessage(ch.id)] });
+          await db.set(`sticky_${message.guild.id}_${ch.id}`, { channelId: ch.id, messageId: sentMsg.id });
+          results.push(`✅ <#${ch.id}>`);
+        } catch (err) {
+          results.push(`❌ <#${ch.id}> — ${err.message}`);
+        }
+      }
+      message.reply({ embeds: [successEmbed(`Sticky message enabled in:\n${results.join('\n')}`)] });
+    }
+  },
+
+  unsticky: {
+    category: 'Config',
+    description: 'Removes the sticky message from one or more channels',
+    usage: '!unsticky #channel1 #channel2 ...',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const channels = [...message.mentions.channels.values()];
+      if (!channels.length) return message.reply({ embeds: [errorEmbed('Mention at least one channel. Usage: !unsticky #channel1 #channel2 ...')] });
+
+      for (const ch of channels) {
+        const key = `sticky_${message.guild.id}_${ch.id}`;
+        const data = await db.get(key);
+        if (data?.messageId) {
+          const msg = await ch.messages.fetch(data.messageId).catch(() => null);
+          if (msg) await msg.delete().catch(() => {});
+        }
+        await db.delete(key);
+      }
+      message.reply({ embeds: [successEmbed(`Sticky message removed from: ${channels.map(c => `<#${c.id}>`).join(', ')}`)] });
+    }
+  },
+
   config: {
     category: 'Config',
     description: 'View the server configuration',
@@ -1620,6 +1694,11 @@ client.on('messageCreate', async (message) => {
   }
 
   const guildPrefix = (await db.get(`prefix_${message.guild.id}`)) || PREFIX;
+
+  // Sticky messages: repost at the bottom of the channel after every new message
+  const stickyData = await db.get(`sticky_${message.guild.id}_${message.channel.id}`);
+  if (stickyData) repostSticky(message.channel, message.guild.id);
+
   if (!message.content.startsWith(guildPrefix)) return;
 
   const args = message.content.slice(guildPrefix.length).trim().split(/\s+/);

@@ -673,12 +673,26 @@ const commands = {
 
   resetinvites: {
     category: 'Invites',
-    description: 'Resets a member\'s invites back to 0 (regular, left, fake, bonus)',
-    usage: '!resetinvites [@member]',
+    description: 'Resets a member\'s invites back to 0 (regular, left, fake, bonus). Use @everyone or "all" to reset the whole server.',
+    usage: '!resetinvites [@member | @everyone | all]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
+      const wantsEveryone = message.mentions.everyone || (args[0] && ['all', '@everyone', '@here', 'everyone'].includes(args[0].toLowerCase()));
+
+      if (wantsEveryone) {
+        const all = await db.all();
+        const prefix = `invites_${message.guild.id}_`;
+        const entries = all.filter(e => e.id.startsWith(prefix));
+        const reset = { regular: 0, left: 0, fake: 0, bonus: 0 };
+        for (const entry of entries) {
+          await db.set(entry.id, reset);
+        }
+        return message.reply({ embeds: [successEmbed(`Reset invites for **${entries.length}** member(s) on this server.`)] });
+      }
+
       const member = message.mentions.members.first();
-      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member. Usage: !resetinvites @member')] });
+      if (!member) return message.reply({ embeds: [errorEmbed('Mention a member, or use `!resetinvites @everyone` / `!resetinvites all` to reset everyone.')] });
       const reset = { regular: 0, left: 0, fake: 0, bonus: 0 };
       await db.set(invitesKey(message.guild.id, member.id), reset);
       message.reply({ embeds: [successEmbed(`**${member.user.tag}**'s invites have been reset to **0**.`)] });

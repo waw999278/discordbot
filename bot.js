@@ -312,6 +312,62 @@ async function announceLevelUp(guild, userId, level, fallbackChannel = null) {
   }
 }
 
+// ─── Message Stats (for !ms) ──────────────────────────────────────────────────
+function dateKey(d) {
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
+}
+
+// Call on every non-bot message to bump the counters.
+async function trackMessage(guildId, userId) {
+  const key = `msgstats_${guildId}_${userId}`;
+  const data = (await db.get(key)) || { total: 0, daily: {} };
+  const today = dateKey(new Date());
+
+  data.total = (data.total || 0) + 1;
+  data.daily[today] = (data.daily[today] || 0) + 1;
+
+  // Prune entries older than 40 days so the daily map doesn't grow forever
+  // (40 covers the worst case of "this month" spanning into last month).
+  const cutoff = new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - 40);
+  const cutoffKey = dateKey(cutoff);
+  for (const k of Object.keys(data.daily)) {
+    if (k < cutoffKey) delete data.daily[k];
+  }
+
+  await db.set(key, data);
+}
+
+function sumDailyInRange(daily, start, end) {
+  const startKey = dateKey(start);
+  const endKey = dateKey(end);
+  let sum = 0;
+  for (const [k, v] of Object.entries(daily)) {
+    if (k >= startKey && k <= endKey) sum += v;
+  }
+  return sum;
+}
+
+// Returns { today, week, month, total } message counts for a member.
+async function getMessageStats(guildId, userId) {
+  const data = (await db.get(`msgstats_${guildId}_${userId}`)) || { total: 0, daily: {} };
+  const now = new Date();
+  const today = data.daily[dateKey(now)] || 0;
+
+  // Start of the current (Monday-based) week, UTC
+  const day = now.getUTCDay(); // 0 = Sunday
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  const weekStart = new Date(now);
+  weekStart.setUTCDate(now.getUTCDate() - diffToMonday);
+  const week = sumDailyInRange(data.daily, weekStart, now);
+
+  // Start of the current calendar month, UTC
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const month = sumDailyInRange(data.daily, monthStart, now);
+
+  return { today, week, month, total: data.total || 0 };
+}
+
 // ─── Giveaways ──────────────────────────────────────────────────────────────
 async function pickGiveawayWinners(channel, messageId, winnersCount) {
   try {
@@ -485,6 +541,29 @@ const commands = {
         .setTitle(`🖼 ${user.username}'s avatar`)
         .setImage(user.displayAvatarURL({ dynamic: true, size: 512 }))
         .setColor(COLORS.primary);
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  ms: {
+    category: 'Info',
+    description: 'Shows a member\'s message count (today / this week / this month / total)',
+    usage: '!ms [@member]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+      const stats = await getMessageStats(message.guild.id, user.id);
+      const e = new EmbedBuilder()
+        .setAuthor({ name: `${user.username}'s Messages`, iconURL: user.displayAvatarURL() })
+        .setColor(COLORS.info)
+        .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
+        .setDescription(
+          `**Messages Sent:**\n\n` +
+          `Today: **${stats.today}**\n` +
+          `This Week: **${stats.week}**\n` +
+          `This Month: **${stats.month}**\n` +
+          `Total: **${stats.total}**`
+        )
+        .setTimestamp();
       message.reply({ embeds: [e] });
     }
   },
@@ -1699,6 +1778,9 @@ commands['bal'] = { ...commands.balance, description: 'Alias for !balance' };
 // ─── Event: Message ───────────────────────────────────────────────────────────
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
+
+  // Message stats tracking (for !ms)
+  await trackMessage(message.guild.id, message.author.id);
 
   // Auto XP
   if (Math.random() < 0.5) {

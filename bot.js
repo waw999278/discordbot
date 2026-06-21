@@ -261,23 +261,55 @@ async function addXP(member, amount) {
   }
 
   current.xp += amount;
-  const xpNeeded = current.level * 100 + 100;
   let leveledUp = false;
-  if (current.xp >= xpNeeded) {
+
+  // Loop instead of a single "if" so a big XP gain (e.g. !givexp 1000) can
+  // climb through several level thresholds in one go instead of only ever
+  // processing one level-up and leaving the rest of the XP overflowing.
+  while (current.level < MAX_LEVEL) {
+    const xpNeeded = current.level * 100 + 100;
+    if (current.xp < xpNeeded) break;
     current.xp -= xpNeeded;
     current.level++;
     leveledUp = true;
-    if (current.level >= MAX_LEVEL) {
-      current.level = MAX_LEVEL;
-      current.xp = 0;
-    }
   }
+
+  if (current.level >= MAX_LEVEL) {
+    current.level = MAX_LEVEL;
+    current.xp = 0;
+  }
+
   await db.set(key, current);
   return { ...current, leveledUp };
 }
 
 async function getXP(userId, guildId) {
   return (await db.get(`xp_${guildId}_${userId}`)) || { xp: 0, level: 0 };
+}
+
+// Posts the gold/black level-up banner + ping in the channel configured via
+// !setlevel (or a fallback channel if none is set). Shared by the natural
+// chat XP gain and by !givexp so both trigger the same announcement.
+async function announceLevelUp(guild, userId, level, fallbackChannel = null) {
+  const levelupChannelId = await db.get(`levelup_${guild.id}`);
+  const channel = levelupChannelId ? guild.channels.cache.get(levelupChannelId) : fallbackChannel;
+  if (!channel) return;
+
+  const mentionText = `<@${userId}>`;
+  try {
+    const buffer = await generateLevelUpImage(level);
+    const attachment = new AttachmentBuilder(buffer, { name: 'levelup.png' });
+    const e = new EmbedBuilder()
+      .setTitle('⭐ Level Up!')
+      .setDescription(`${mentionText} reached level **${level}**!`)
+      .setColor(0xD4AF37)
+      .setImage('attachment://levelup.png')
+      .setTimestamp();
+    await channel.send({ content: mentionText, embeds: [e], files: [attachment] }).catch(() => {});
+  } catch (err) {
+    console.error('[Level up image] Error:', err);
+    await channel.send({ content: mentionText, embeds: [embed('⭐ Level up!', `${mentionText} reached **level ${level} / ${MAX_LEVEL}**! 🎉`, COLORS.xp)] }).catch(() => {});
+  }
 }
 
 // ─── Giveaways ──────────────────────────────────────────────────────────────
@@ -817,6 +849,9 @@ const commands = {
       if (!member || isNaN(amount)) return message.reply({ embeds: [errorEmbed('Usage: !givexp @member [amount]')] });
       const result = await addXP(member, amount);
       message.reply({ embeds: [successEmbed(`**${amount}** XP given to **${member.user.tag}**. Level: **${result.level}**`)] });
+      if (result.leveledUp) {
+        await announceLevelUp(message.guild, member.id, result.level, message.channel);
+      }
     }
   },
 
@@ -1669,27 +1704,7 @@ client.on('messageCreate', async (message) => {
   if (Math.random() < 0.5) {
     const result = await addXP(message.member, Math.floor(Math.random() * 10) + 5);
     if (result.leveledUp) {
-      const levelupChannel = await db.get(`levelup_${message.guild.id}`);
-      const channel = levelupChannel ? message.guild.channels.cache.get(levelupChannel) : message.channel;
-      if (channel) {
-        // mentionText is sent in `content` (not just the embed) so the member
-        // actually gets pinged — embed-only mentions don't trigger a notification.
-        const mentionText = `<@${message.author.id}>`;
-        try {
-          const buffer = await generateLevelUpImage(result.level);
-          const attachment = new AttachmentBuilder(buffer, { name: 'levelup.png' });
-          const e = new EmbedBuilder()
-            .setTitle('⭐ Level Up!')
-            .setDescription(`${mentionText} reached level **${result.level}**!`)
-            .setColor(0xD4AF37)
-            .setImage('attachment://levelup.png')
-            .setTimestamp();
-          channel.send({ content: mentionText, embeds: [e], files: [attachment] }).catch(() => {});
-        } catch (err) {
-          console.error('[Level up image] Error:', err);
-          channel.send({ content: mentionText, embeds: [embed('⭐ Level up!', `${mentionText} reached **level ${result.level} / ${MAX_LEVEL}**! 🎉`, COLORS.xp)] }).catch(() => {});
-        }
-      }
+      await announceLevelUp(message.guild, message.author.id, result.level, message.channel);
     }
   }
 

@@ -1654,33 +1654,55 @@ const commands = {
   // ══════════════ 🎉 GIVEAWAYS ══════════════
   gcreate: {
     category: 'Giveaway',
-    description: 'Create a giveaway (attach an image to the message to include it)',
-    usage: '!gcreate [winners] [duration] [prize]',
+    description: 'Create a giveaway in the current channel or a mentioned one, with an optional description (attach an image to the message to include it)',
+    usage: '!gcreate [winners] [duration] [#channel] [prize] | [description]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
       const winners = parseInt(args[0]);
       const duration = parseDuration(args[1]);
-      const prize = args.slice(2).join(' ');
+
+      // Optional target channel: a mention anywhere from args[2] onward
+      const targetChannel = message.mentions.channels.first() || message.channel;
+
+      // Remaining text (after winners + duration), with the channel mention stripped out
+      const rest = args.slice(2).filter(a => !/^<#\d+>$/.test(a)).join(' ');
+
+      // Split on the first "|" to separate prize from an optional description
+      const [prizePart, ...descParts] = rest.split('|');
+      const prize = prizePart.trim();
+      const description = descParts.join('|').trim();
+
       if (!winners || winners < 1 || !duration || !prize) {
-        return message.reply({ embeds: [errorEmbed('Usage: !gcreate [winners] [duration] [prize]\nEx: `!gcreate 1 1h Discord Nitro` (attach an image if you want one)')] });
+        return message.reply({ embeds: [errorEmbed('Usage: !gcreate [winners] [duration] [#channel] [prize] | [description]\nEx: `!gcreate 1 1h #giveaways Discord Nitro | Must be in the server for 7+ days` (attach an image if you want one)')] });
       }
       const endTime = Date.now() + duration;
       const image = message.attachments.first()?.url || null;
 
+      let desc = `**Prize:** ${prize}\n**Winners:** ${winners}\n**Ends:** <t:${Math.floor(endTime / 1000)}:R> (<t:${Math.floor(endTime / 1000)}:F>)\n**Hosted by:** <@${message.author.id}>`;
+      if (description) desc += `\n\n${description}`;
+      desc += `\n\nReact with 🎉 to enter!`;
+
       const e = new EmbedBuilder()
         .setTitle('🎉 GIVEAWAY 🎉')
-        .setDescription(`**Prize:** ${prize}\n**Winners:** ${winners}\n**Ends:** <t:${Math.floor(endTime / 1000)}:R> (<t:${Math.floor(endTime / 1000)}:F>)\n**Hosted by:** <@${message.author.id}>\n\nReact with 🎉 to enter!`)
+        .setDescription(desc)
         .setColor(COLORS.xp)
         .setTimestamp(endTime);
       if (image) e.setImage(image);
 
-      const giveawayMsg = await message.channel.send({ embeds: [e] });
+      const giveawayMsg = await targetChannel.send({ embeds: [e] });
       await giveawayMsg.react('🎉');
+
+      // Now that we have the message ID, add it to the embed footer so it's
+      // visible (and copyable) directly on the giveaway post itself.
+      const finalEmbed = EmbedBuilder.from(e).setFooter({ text: `Giveaway ID: ${giveawayMsg.id}` });
+      await giveawayMsg.edit({ embeds: [finalEmbed] }).catch(() => {});
 
       await db.set(`giveaway_${giveawayMsg.id}`, {
         guildId: message.guild.id,
-        channelId: message.channel.id,
+        channelId: targetChannel.id,
         prize,
+        description,
         winners,
         endTime,
         hostId: message.author.id,
@@ -1688,7 +1710,7 @@ const commands = {
         winnerIds: [],
       });
 
-      message.reply({ embeds: [successEmbed(`Giveaway created! 🎉\n**ID:** \`${giveawayMsg.id}\`\nUse this ID with \`!gend\`, \`!gdelete\` or \`!greroll\`.`)] });
+      message.reply({ embeds: [successEmbed(`Giveaway created in <#${targetChannel.id}>! 🎉\nUse this ID with \`!gend\`, \`!gdelete\` or \`!greroll\`:\n\`\`\`${giveawayMsg.id}\`\`\``)] });
       message.delete().catch(() => {});
     }
   },

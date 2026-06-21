@@ -182,6 +182,66 @@ async function getXP(userId, guildId) {
   return (await db.get(`xp_${guildId}_${userId}`)) || { xp: 0, level: 0 };
 }
 
+// ─── Giveaways ──────────────────────────────────────────────────────────────
+async function pickGiveawayWinners(channel, messageId, winnersCount) {
+  try {
+    const msg = await channel.messages.fetch(messageId);
+    const reaction = msg.reactions.cache.get('🎉');
+    if (!reaction) return [];
+    const users = await reaction.users.fetch();
+    const participants = users.filter(u => !u.bot).map(u => u.id);
+    const shuffled = participants.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, winnersCount);
+  } catch {
+    return [];
+  }
+}
+
+async function endGiveaway(giveawayId) {
+  const data = await db.get(`giveaway_${giveawayId}`);
+  if (!data || data.ended) return null;
+  const guild = client.guilds.cache.get(data.guildId);
+  if (!guild) return null;
+  const channel = guild.channels.cache.get(data.channelId);
+  if (!channel) return null;
+
+  const winners = await pickGiveawayWinners(channel, giveawayId, data.winners);
+  data.ended = true;
+  data.winnerIds = winners;
+  await db.set(`giveaway_${giveawayId}`, data);
+
+  try {
+    const msg = await channel.messages.fetch(giveawayId);
+    const endedEmbed = EmbedBuilder.from(msg.embeds[0])
+      .setColor(COLORS.error)
+      .setFooter({ text: `Giveaway ended • ID: ${giveawayId}` });
+    await msg.edit({ embeds: [endedEmbed] }).catch(() => {});
+  } catch {}
+
+  const winnerText = winners.length ? winners.map(id => `<@${id}>`).join(', ') : 'No valid participants 😢';
+  const resultEmbed = new EmbedBuilder()
+    .setTitle('🎉 Giveaway Ended')
+    .setDescription(`**Prize:** ${data.prize}\n**Winner(s):** ${winnerText}`)
+    .setColor(winners.length ? COLORS.success : COLORS.error)
+    .setFooter({ text: `Giveaway ID: ${giveawayId}` })
+    .setTimestamp();
+  channel.send({ embeds: [resultEmbed] }).catch(() => {});
+  return winners;
+}
+
+async function checkGiveaways() {
+  try {
+    const all = await db.all();
+    const due = all.filter(e => e.id.startsWith('giveaway_') && !e.value.ended && e.value.endTime <= Date.now());
+    for (const entry of due) {
+      const giveawayId = entry.id.replace('giveaway_', '');
+      await endGiveaway(giveawayId);
+    }
+  } catch (err) {
+    console.error('[Giveaway checker] Error:', err);
+  }
+}
+
 // ─── Commands ────────────────────────────────────────────────────────────────
 const commands = {
 
@@ -1102,6 +1162,111 @@ const commands = {
     }
   },
 
+  // ══════════════ 🎉 GIVEAWAYS ══════════════
+  gcreate: {
+    category: 'Giveaway',
+    description: 'Create a giveaway (attach an image to the message to include it)',
+    usage: '!gcreate [winners] [duration] [prize]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const winners = parseInt(args[0]);
+      const duration = parseDuration(args[1]);
+      const prize = args.slice(2).join(' ');
+      if (!winners || winners < 1 || !duration || !prize) {
+        return message.reply({ embeds: [errorEmbed('Usage: !gcreate [winners] [duration] [prize]\nEx: `!gcreate 1 1h Discord Nitro` (attach an image if you want one)')] });
+      }
+      const endTime = Date.now() + duration;
+      const image = message.attachments.first()?.url || null;
+
+      const e = new EmbedBuilder()
+        .setTitle('🎉 GIVEAWAY 🎉')
+        .setDescription(`**Prize:** ${prize}\n**Winners:** ${winners}\n**Ends:** <t:${Math.floor(endTime / 1000)}:R> (<t:${Math.floor(endTime / 1000)}:F>)\n**Hosted by:** <@${message.author.id}>\n\nReact with 🎉 to enter!`)
+        .setColor(COLORS.xp)
+        .setTimestamp(endTime);
+      if (image) e.setImage(image);
+
+      const giveawayMsg = await message.channel.send({ embeds: [e] });
+      await giveawayMsg.react('🎉');
+
+      await db.set(`giveaway_${giveawayMsg.id}`, {
+        guildId: message.guild.id,
+        channelId: message.channel.id,
+        prize,
+        winners,
+        endTime,
+        hostId: message.author.id,
+        ended: false,
+        winnerIds: [],
+      });
+
+      message.reply({ embeds: [successEmbed(`Giveaway created! 🎉\n**ID:** \`${giveawayMsg.id}\`\nUse this ID with \`!gend\`, \`!gdelete\` or \`!greroll\`.`)] });
+      message.delete().catch(() => {});
+    }
+  },
+
+  gend: {
+    category: 'Giveaway',
+    description: 'End a giveaway immediately and pick the winner(s)',
+    usage: '!gend [giveawayID]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const giveawayId = args[0];
+      if (!giveawayId) return message.reply({ embeds: [errorEmbed('Usage: !gend [giveawayID]')] });
+      const data = await db.get(`giveaway_${giveawayId}`);
+      if (!data) return message.reply({ embeds: [errorEmbed('Giveaway not found. Check the ID.')] });
+      if (data.ended) return message.reply({ embeds: [errorEmbed('This giveaway has already ended.')] });
+      await endGiveaway(giveawayId);
+      message.reply({ embeds: [successEmbed('Giveaway ended! Check the announcement above. 🎉')] });
+    }
+  },
+
+  gdelete: {
+    category: 'Giveaway',
+    description: 'Delete a giveaway',
+    usage: '!gdelete [giveawayID]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const giveawayId = args[0];
+      if (!giveawayId) return message.reply({ embeds: [errorEmbed('Usage: !gdelete [giveawayID]')] });
+      const data = await db.get(`giveaway_${giveawayId}`);
+      if (!data) return message.reply({ embeds: [errorEmbed('Giveaway not found. Check the ID.')] });
+      const channel = message.guild.channels.cache.get(data.channelId);
+      if (channel) {
+        const msg = await channel.messages.fetch(giveawayId).catch(() => null);
+        if (msg) await msg.delete().catch(() => {});
+      }
+      await db.delete(`giveaway_${giveawayId}`);
+      message.reply({ embeds: [successEmbed('Giveaway deleted.')] });
+    }
+  },
+
+  greroll: {
+    category: 'Giveaway',
+    description: 'Reroll a new winner for an ended giveaway',
+    usage: '!greroll [giveawayID]',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+      const giveawayId = args[0];
+      if (!giveawayId) return message.reply({ embeds: [errorEmbed('Usage: !greroll [giveawayID]')] });
+      const data = await db.get(`giveaway_${giveawayId}`);
+      if (!data) return message.reply({ embeds: [errorEmbed('Giveaway not found. Check the ID.')] });
+      if (!data.ended) return message.reply({ embeds: [errorEmbed('This giveaway has not ended yet. Use `!gend` first.')] });
+      const channel = message.guild.channels.cache.get(data.channelId);
+      if (!channel) return message.reply({ embeds: [errorEmbed('Original channel not found.')] });
+      const winners = await pickGiveawayWinners(channel, giveawayId, data.winners);
+      data.winnerIds = winners;
+      await db.set(`giveaway_${giveawayId}`, data);
+      const winnerText = winners.length ? winners.map(id => `<@${id}>`).join(', ') : 'No valid participants 😢';
+      const e = new EmbedBuilder()
+        .setTitle('🔄 Giveaway Rerolled')
+        .setDescription(`**Prize:** ${data.prize}\n**New winner(s):** ${winnerText}`)
+        .setColor(COLORS.info)
+        .setFooter({ text: `Giveaway ID: ${giveawayId}` })
+        .setTimestamp();
+      message.channel.send({ embeds: [e] });
+    }
+  },
+
   // ══════════════ 🎰 ECONOMY ══════════════
   balance: {
     category: 'Economy',
@@ -1726,6 +1891,10 @@ client.once('ready', () => {
 ╚══════════════════════════════════════╝
   `);
   client.user.setActivity(`${PREFIX}help | ${count} commands`, { type: 3 });
+
+  // Giveaway auto-end checker
+  checkGiveaways();
+  setInterval(checkGiveaways, 30000);
 });
 
 // ─── Login ────────────────────────────────────────────────────────────────────

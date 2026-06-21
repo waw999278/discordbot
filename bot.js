@@ -162,10 +162,17 @@ function formatDuration(ms_val) {
   return `${s}s`;
 }
 
-// ─── XP System ────────────────────────────────────────────────────────────────
+// ─── XP System (capped at level 100) ──────────────────────────────────────────
+const MAX_LEVEL = 100;
+
 async function addXP(member, amount) {
   const key = `xp_${member.guild.id}_${member.id}`;
   const current = (await db.get(key)) || { xp: 0, level: 0 };
+
+  if (current.level >= MAX_LEVEL) {
+    return { ...current, leveledUp: false }; // Max level reached, no more XP gain
+  }
+
   current.xp += amount;
   const xpNeeded = current.level * 100 + 100;
   let leveledUp = false;
@@ -173,6 +180,10 @@ async function addXP(member, amount) {
     current.xp -= xpNeeded;
     current.level++;
     leveledUp = true;
+    if (current.level >= MAX_LEVEL) {
+      current.level = MAX_LEVEL;
+      current.xp = 0;
+    }
   }
   await db.set(key, current);
   return { ...current, leveledUp };
@@ -606,16 +617,43 @@ const commands = {
     async execute(message, args) {
       const user = message.mentions.users.first() || message.author;
       const data = await getXP(user.id, message.guild.id);
-      const xpNeeded = data.level * 100 + 100;
-      const bar = '█'.repeat(Math.floor((data.xp / xpNeeded) * 10)) + '░'.repeat(10 - Math.floor((data.xp / xpNeeded) * 10));
+      const maxed = data.level >= MAX_LEVEL;
+      const xpNeeded = maxed ? 0 : data.level * 100 + 100;
+      const bar = maxed
+        ? '█'.repeat(10)
+        : '█'.repeat(Math.floor((data.xp / xpNeeded) * 10)) + '░'.repeat(10 - Math.floor((data.xp / xpNeeded) * 10));
       const e = new EmbedBuilder()
         .setTitle(`⭐ ${user.username}'s rank`)
         .setColor(COLORS.xp)
         .setThumbnail(user.displayAvatarURL())
         .addFields(
-          { name: '🏆 Level', value: `${data.level}`, inline: true },
-          { name: '✨ XP', value: `${data.xp} / ${xpNeeded}`, inline: true },
+          { name: '🏆 Level', value: `${data.level} / ${MAX_LEVEL}`, inline: true },
+          { name: '✨ XP', value: maxed ? 'MAX LEVEL' : `${data.xp} / ${xpNeeded}`, inline: true },
           { name: '📊 Progress', value: `[${bar}]`, inline: false },
+        )
+        .setTimestamp();
+      message.reply({ embeds: [e] });
+    }
+  },
+
+  xp: {
+    category: 'Levels',
+    description: 'See how much XP you have and how much you need to level up',
+    usage: '!xp [@member]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+      const data = await getXP(user.id, message.guild.id);
+      const maxed = data.level >= MAX_LEVEL;
+      const xpNeeded = maxed ? 0 : data.level * 100 + 100;
+      const xpRemaining = maxed ? 0 : xpNeeded - data.xp;
+      const e = new EmbedBuilder()
+        .setTitle(`✨ ${user.username}'s XP`)
+        .setColor(COLORS.xp)
+        .setThumbnail(user.displayAvatarURL())
+        .addFields(
+          { name: '🏆 Current Level', value: `${data.level} / ${MAX_LEVEL}`, inline: true },
+          { name: '✨ Current XP', value: maxed ? 'MAX LEVEL' : `${data.xp} / ${xpNeeded}`, inline: true },
+          { name: '📈 XP to Next Level', value: maxed ? 'You\'ve reached the max level! 🎉' : `${xpRemaining} XP`, inline: false },
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
@@ -1108,16 +1146,16 @@ const commands = {
     }
   },
 
-  setlevelup: {
+  setlevel: {
     category: 'Config',
-    description: 'Channel for level-up announcements',
-    usage: '!setlevelup #channel',
+    description: 'Channel where level-up announcements (1 to 100) are sent',
+    usage: '!setlevel #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel. Usage: !setlevel #channel')] });
       await db.set(`levelup_${message.guild.id}`, channel.id);
-      message.reply({ embeds: [successEmbed(`Level-up announcements in <#${channel.id}>`)] });
+      message.reply({ embeds: [successEmbed(`Level-up announcements will be sent in <#${channel.id}>.`)] });
     }
   },
 
@@ -1479,7 +1517,7 @@ client.on('messageCreate', async (message) => {
     if (result.leveledUp) {
       const levelupChannel = await db.get(`levelup_${message.guild.id}`);
       const channel = levelupChannel ? message.guild.channels.cache.get(levelupChannel) : message.channel;
-      channel?.send({ embeds: [embed('⭐ Level up!', `<@${message.author.id}> reached **level ${result.level}**! 🎉`, COLORS.xp)] });
+      channel?.send({ embeds: [embed('⭐ Level up!', `<@${message.author.id}> reached **level ${result.level} / ${MAX_LEVEL}**! 🎉`, COLORS.xp)] });
     }
   }
 

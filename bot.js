@@ -2366,3 +2366,115 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   const oldRoles     = oldMember.roles.cache;
   const newRoles     = newMember.roles.cache;
   const addedRoles   = newRoles.filter(r => !oldRoles.has(r.id)
+  const addedRoles   = newRoles.filter(r => !oldRoles.has(r.id));
+  const removedRoles = oldRoles.filter(r => !newRoles.has(r.id));
+
+  if (addedRoles.size > 0) {
+    const e = logEmbed('➕ Role Added', COLORS.success)
+      .addFields(
+        { name: 'User',  value: `${newMember.user.tag} (${newMember.id})`, inline: false },
+        { name: 'Role',  value: addedRoles.map(r => r.name).join(', '),    inline: false },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+
+  if (removedRoles.size > 0) {
+    const e = logEmbed('➖ Role Removed', COLORS.error)
+      .addFields(
+        { name: 'User',  value: `${newMember.user.tag} (${newMember.id})`, inline: false },
+        { name: 'Role',  value: removedRoles.map(r => r.name).join(', '),  inline: false },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+
+  if (!oldMember.isCommunicationDisabled() && newMember.isCommunicationDisabled()) {
+    const e = logEmbed('🔇 Member Timed Out', COLORS.mod)
+      .addFields(
+        { name: 'User',       value: `${newMember.user.tag} (${newMember.id})`,                                           inline: false },
+        { name: 'Expires',    value: `<t:${Math.floor(newMember.communicationDisabledUntilTimestamp / 1000)}:R>`,         inline: false },
+      );
+    channel.send({ embeds: [e] }).catch(() => {});
+  }
+});
+
+// Reaction roles
+client.on('messageReactionAdd', async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch().catch(() => {});
+  const data = await db.get(`rr_${reaction.message.id}`);
+  if (!data) return;
+  if (reaction.emoji.name !== data.emoji && reaction.emoji.toString() !== data.emoji) return;
+  const guild  = reaction.message.guild;
+  const member = await guild.members.fetch(user.id).catch(() => null);
+  if (!member) return;
+  const role = guild.roles.cache.get(data.roleId);
+  if (role) member.roles.add(role).catch(() => {});
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch().catch(() => {});
+  const data = await db.get(`rr_${reaction.message.id}`);
+  if (!data) return;
+  if (reaction.emoji.name !== data.emoji && reaction.emoji.toString() !== data.emoji) return;
+  const guild  = reaction.message.guild;
+  const member = await guild.members.fetch(user.id).catch(() => null);
+  if (!member) return;
+  const role = guild.roles.cache.get(data.roleId);
+  if (role) member.roles.remove(role).catch(() => {});
+});
+
+// Channel logs
+client.on('channelCreate', async (channel) => {
+  if (!channel.guild) return;
+  const logChannel = await getLogChannel(channel.guild);
+  if (!logChannel) return;
+  const e = logEmbed('📁 Channel Created', COLORS.success)
+    .addFields({ name: 'Channel', value: `<#${channel.id}> (${channel.name})`, inline: false });
+  logChannel.send({ embeds: [e] }).catch(() => {});
+});
+
+client.on('channelDelete', async (channel) => {
+  if (!channel.guild) return;
+  const logChannel = await getLogChannel(channel.guild);
+  if (!logChannel) return;
+  const e = logEmbed('🗑️ Channel Deleted', COLORS.mod)
+    .addFields({ name: 'Channel', value: channel.name, inline: false });
+  logChannel.send({ embeds: [e] }).catch(() => {});
+});
+
+// Role logs
+client.on('roleCreate', async (role) => {
+  const logChannel = await getLogChannel(role.guild);
+  if (!logChannel) return;
+  const e = logEmbed('🎭 Role Created', COLORS.success)
+    .addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false });
+  logChannel.send({ embeds: [e] }).catch(() => {});
+});
+
+client.on('roleDelete', async (role) => {
+  const logChannel = await getLogChannel(role.guild);
+  if (!logChannel) return;
+  const e = logEmbed('🗑️ Role Deleted', COLORS.mod)
+    .addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false });
+  logChannel.send({ embeds: [e] }).catch(() => {});
+});
+
+// ─── Ready ────────────────────────────────────────────────────────────────────
+client.once('ready', async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  client.user.setActivity('!help | discord.gg', { type: 3 });
+
+  for (const guild of client.guilds.cache.values()) {
+    await cacheGuildInvites(guild);
+  }
+
+  setInterval(checkGiveaways, 30000);
+});
+
+client.on('guildCreate', async (guild) => {
+  await cacheGuildInvites(guild);
+});
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+client.login(TOKEN);

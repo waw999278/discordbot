@@ -1,7 +1,7 @@
 {
   "name": "discord-bot",
   "version": "1.0.0",
-  "description": "Bot Discord multifonction avec + de 100 commandes (Saphire + Dyno + Arcane + Circle)",
+  "description": "Multipurpose Discord bot with 100+ commands (Saphire + Dyno + Arcane + Circle)",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
@@ -15,7 +15,8 @@
     "node-fetch": "^2.7.0",
     "quick.db": "^9.1.7",
     "better-sqlite3": "^11.3.0",
-    "moment": "^2.30.1"
+    "moment": "^2.30.1",
+    "jimp": "^0.22.12"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

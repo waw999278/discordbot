@@ -8,7 +8,7 @@
 
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, Partials } = require('discord.js');
 const { QuickDB } = require('quick.db');
 const ms = require('ms');
 const Jimp = require('jimp');
@@ -31,7 +31,9 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildExpressions,
     GatewayIntentBits.GuildInvites,
+    GatewayIntentBits.DirectMessages,
   ],
+  partials: [Partials.Channel, Partials.Message],
 });
 
 client.commands = new Collection();
@@ -1387,11 +1389,11 @@ const commands = {
     }
   },
 
-  // ── Guess game (Bot picks a random number 1-100) ──────────────────────────
+  // ── Guess game (Bot picks a random number in a range) ──────────────────────
   guessrange: {
     category: 'Fun',
-    description: 'The bot picks a random number between 1 and 100 — first to guess it wins',
-    usage: '!guessrange',
+    description: 'The bot picks a random number in a range — first to guess it wins. Default range is 1-100, or specify your own with min.max (e.g. `!guessrange 1.500`)',
+    usage: '!guessrange [min.max]',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
         return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
@@ -1400,7 +1402,22 @@ const commands = {
       if (existing)
         return message.reply({ embeds: [errorEmbed('A guessing game is already running in this channel! Use `!stopguess` to stop it.')] });
 
-      const number = Math.floor(Math.random() * 100) + 1;
+      let min = 1;
+      let max = 100;
+
+      if (args[0]) {
+        const match = args[0].match(/^(\d+)\.(\d+)$/);
+        if (!match)
+          return message.reply({ embeds: [errorEmbed('Invalid range format. Usage: `!guessrange min.max` — Example: `!guessrange 1.500`')] });
+
+        min = parseInt(match[1]);
+        max = parseInt(match[2]);
+
+        if (min >= max)
+          return message.reply({ embeds: [errorEmbed('The minimum number must be smaller than the maximum number.')] });
+      }
+
+      const number = Math.floor(Math.random() * (max - min + 1)) + min;
       await db.set(`guess_${message.guild.id}_${message.channel.id}`, {
         number,
         hostId: message.author.id,
@@ -1409,7 +1426,7 @@ const commands = {
 
       const e = new EmbedBuilder()
         .setTitle('🎲 Random Guessing Game!')
-        .setDescription(`The bot has chosen a number between **1** and **100**!\nBe the first to guess it right to win! 🏆\n\n*Simply type a number in this channel.*`)
+        .setDescription(`The bot has chosen a number between **${min}** and **${max}**!\nBe the first to guess it right to win! 🏆\n\n*Simply type a number in this channel.*`)
         .setColor(COLORS.xp)
         .setTimestamp();
       message.reply({ embeds: [e] });

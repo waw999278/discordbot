@@ -611,30 +611,52 @@ const commands = {
 
   // ══════════════ 📊 XP & LEVELS (Arcane) ══════════════
   rank: {
-    category: 'Levels',
-    description: 'View your level and XP',
-    usage: '!rank [@member]',
-    async execute(message, args) {
-      const user = message.mentions.users.first() || message.author;
-      const data = await getXP(user.id, message.guild.id);
-      const maxed = data.level >= MAX_LEVEL;
-      const xpNeeded = maxed ? 0 : data.level * 100 + 100;
-      const bar = maxed
-        ? '█'.repeat(10)
-        : '█'.repeat(Math.floor((data.xp / xpNeeded) * 10)) + '░'.repeat(10 - Math.floor((data.xp / xpNeeded) * 10));
-      const e = new EmbedBuilder()
-        .setTitle(`⭐ ${user.username}'s rank`)
-        .setColor(COLORS.xp)
-        .setThumbnail(user.displayAvatarURL())
-        .addFields(
-          { name: '🏆 Level', value: `${data.level} / ${MAX_LEVEL}`, inline: true },
-          { name: '✨ XP', value: maxed ? 'MAX LEVEL' : `${data.xp} / ${xpNeeded}`, inline: true },
-          { name: '📊 Progress', value: `[${bar}]`, inline: false },
-        )
-        .setTimestamp();
-      message.reply({ embeds: [e] });
-    }
-  },
+  category: 'Levels',
+  description: 'View your level and XP',
+  usage: '!rank [@member]',
+  async execute(message, args) {
+    const user = message.mentions.users.first() || message.author;
+    const member = message.guild.members.cache.get(user.id);
+    const data = await getXP(user.id, message.guild.id);
+    const maxed = data.level >= MAX_LEVEL;
+    const xpNeeded = maxed ? data.level * 100 + 100 : data.level * 100 + 100;
+    const xpCurrent = data.xp;
+
+    // Barre de progression (10 blocs)
+    const progress = maxed ? 10 : Math.floor((xpCurrent / xpNeeded) * 10);
+    const bar = '█'.repeat(progress) + '░'.repeat(10 - progress);
+    const percent = maxed ? 100 : Math.floor((xpCurrent / xpNeeded) * 100);
+
+    // Statut en ligne = vert, hors ligne/absent = rouge
+    const presence = member?.presence?.status;
+    const isOnline = presence === 'online' || presence === 'idle' || presence === 'dnd';
+    const statusColor = isOnline ? 0x57F287 : 0xED4245; // vert ou rouge
+    const statusEmoji = isOnline ? '🟢' : '🔴';
+
+    // Classement du membre
+    const allData = await db.all();
+    const guildData = allData
+      .filter(e => e.id.startsWith(`xp_${message.guild.id}_`))
+      .map(e => ({ userId: e.id.split('_')[2], ...e.value }))
+      .sort((a, b) => b.level - a.level || b.xp - a.xp);
+    const rank = guildData.findIndex(d => d.userId === user.id) + 1;
+
+    const e = new EmbedBuilder()
+      .setAuthor({ name: `📊 ${user.username}'s Stats`, iconURL: user.displayAvatarURL() })
+      .setColor(statusColor)
+      .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 256 }))
+      .addFields(
+        { name: 'Level', value: `**${data.level}** / ${MAX_LEVEL}`, inline: true },
+        { name: 'Rank', value: rank ? `**#${rank}**` : 'N/A', inline: true },
+        { name: 'Status', value: `${statusEmoji} ${isOnline ? 'Online' : 'Offline'}`, inline: true },
+        { name: 'XP', value: maxed ? '`MAX`' : `\`${xpCurrent} / ${xpNeeded}\``, inline: true },
+        { name: 'Progress', value: `\`[${bar}] ${percent}%\``, inline: false },
+      )
+      .setTimestamp();
+
+    message.reply({ embeds: [e] });
+  }
+},
 
   xp: {
     category: 'Levels',

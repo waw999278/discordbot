@@ -109,6 +109,44 @@ async function generateWelcomeImage() {
   return bg.getBufferAsync(Jimp.MIME_PNG);
 }
 
+// ─── Generated Goodbye Banner (gold text on black, pure JS via Jimp) ─────────
+async function generateGoodbyeImage() {
+  const WIDTH = 1000, HEIGHT = 350;
+  const GOLD = { r: 0xD4, g: 0xAF, b: 0x37 };
+
+  const bg = new Jimp(WIDTH, HEIGHT, 0x000000FF);
+
+  const borderThickness = 6;
+  bg.scan(0, 0, WIDTH, HEIGHT, function (x, y, idx) {
+    if (x < borderThickness || x >= WIDTH - borderThickness || y < borderThickness || y >= HEIGHT - borderThickness) {
+      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx + 1] = GOLD.g;
+      this.bitmap.data[idx + 2] = GOLD.b;
+      this.bitmap.data[idx + 3] = 255;
+    }
+  });
+
+  const font = await Jimp.loadFont(Jimp.FONT_SANS_128_WHITE);
+  const textLayer = new Jimp(WIDTH, HEIGHT, 0x00000000);
+  textLayer.print(font, 0, 0, {
+    text: 'GOODBYE',
+    alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER,
+    alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE,
+  }, WIDTH, HEIGHT);
+
+  textLayer.scan(0, 0, textLayer.bitmap.width, textLayer.bitmap.height, function (x, y, idx) {
+    const alpha = this.bitmap.data[idx + 3];
+    if (alpha > 0) {
+      this.bitmap.data[idx] = GOLD.r;
+      this.bitmap.data[idx + 1] = GOLD.g;
+      this.bitmap.data[idx + 2] = GOLD.b;
+    }
+  });
+
+  bg.composite(textLayer, 0, 0);
+  return bg.getBufferAsync(Jimp.MIME_PNG);
+}
+
 function parseDuration(str) {
   try { return ms(str); } catch { return null; }
 }
@@ -958,17 +996,16 @@ const commands = {
     }
   },
 
-  setleave: {
+  setgoodbye: {
     category: 'Config',
-    description: 'Configure the leave message',
-    usage: '!setleave #channel [message]',
+    description: 'Configure the goodbye channel (fixed embed with mention + gold/black banner)',
+    usage: '!setgoodbye #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const channel = message.mentions.channels.first();
-      const msg = args.slice(1).join(' ');
-      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel.')] });
-      await db.set(`leave_${message.guild.id}`, { channelId: channel.id, message: msg || '**{user}** has left the server. 👋' });
-      message.reply({ embeds: [successEmbed(`Leave message configured in <#${channel.id}>.`)] });
+      if (!channel) return message.reply({ embeds: [errorEmbed('Mention a channel. Usage: !setgoodbye #channel')] });
+      await db.set(`goodbye_${message.guild.id}`, channel.id);
+      message.reply({ embeds: [successEmbed(`Goodbye messages will be sent in <#${channel.id}>.`)] });
     }
   },
 
@@ -1031,7 +1068,7 @@ const commands = {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
       const g = message.guild.id;
       const welcome = await db.get(`welcome_${g}`);
-      const leave = await db.get(`leave_${g}`);
+      const goodbye = await db.get(`goodbye_${g}`);
       const logs = await db.get(`logs_${g}`);
       const autorole = await db.get(`autorole_${g}`);
       const levelup = await db.get(`levelup_${g}`);
@@ -1042,7 +1079,7 @@ const commands = {
         .addFields(
           { name: '🔤 Prefix', value: prefix || PREFIX, inline: true },
           { name: '👋 Welcome', value: welcome ? `<#${welcome}>` : 'Not configured', inline: true },
-          { name: '🚪 Leave', value: leave ? `<#${leave.channelId}>` : 'Not configured', inline: true },
+          { name: '🚪 Goodbye', value: goodbye ? `<#${goodbye}>` : 'Not configured', inline: true },
           { name: '📋 Log Channel', value: logs ? `<#${logs}>` : 'Not configured (use !setlogchannel)', inline: true },
           { name: '🎭 Auto-role', value: autorole ? `<@&${autorole}>` : 'Not configured', inline: true },
           { name: '⭐ Level-up', value: levelup ? `<#${levelup}>` : 'Not configured', inline: true },
@@ -1391,13 +1428,25 @@ client.on('guildMemberAdd', async (member) => {
 
 // 🚪 Member leaves
 client.on('guildMemberRemove', async (member) => {
-  const leave = await db.get(`leave_${member.guild.id}`);
-  if (leave) {
-    const leaveChannel = member.guild.channels.cache.get(leave.channelId);
-    const msg = leave.message
-      .replace('{user}', member.user.tag)
-      .replace('{server}', member.guild.name);
-    leaveChannel?.send({ embeds: [embed('🚪 Leave', msg, COLORS.warning)] });
+  // Goodbye message
+  const goodbyeChannelId = await db.get(`goodbye_${member.guild.id}`);
+  if (goodbyeChannelId) {
+    const goodbyeChannel = member.guild.channels.cache.get(goodbyeChannelId);
+    if (goodbyeChannel) {
+      try {
+        const buffer = await generateGoodbyeImage();
+        const attachment = new AttachmentBuilder(buffer, { name: 'goodbye.png' });
+        const e = new EmbedBuilder()
+          .setTitle('👋 Goodbye')
+          .setDescription(`<@${member.id}> Goodbye I Hope You Will Comeback Soon`)
+          .setColor(0xD4AF37)
+          .setImage('attachment://goodbye.png')
+          .setTimestamp();
+        goodbyeChannel.send({ embeds: [e], files: [attachment] }).catch(() => {});
+      } catch (err) {
+        console.error('[Goodbye image] Error:', err);
+      }
+    }
   }
   const channel = await getLogChannel(member.guild);
   if (channel) {

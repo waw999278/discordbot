@@ -2333,4 +2333,128 @@ client.on('channelUpdate', async (oldCh, newCh) => {
   if (!channel) return;
   if (oldCh.name === newCh.name && oldCh.topic === newCh.topic) return;
   const e = logEmbed('🔧 Channel Updated', COLORS.warning)
-    .add
+    .addFields({ name: 'Channel', value: `<#${newCh.id}>`, inline: false });
+  if (oldCh.name !== newCh.name) e.addFields({ name: 'Name', value: `${oldCh.name} → ${newCh.name}`, inline: false });
+  if (oldCh.topic !== newCh.topic) e.addFields({ name: 'Topic', value: `${oldCh.topic || '*None*'} → ${newCh.topic || '*None*'}`, inline: false });
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 🎭 Role create/update/delete
+client.on('roleCreate', async (role) => {
+  const channel = await getLogChannel(role.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🎭 Role Created', COLORS.success).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('roleDelete', async (role) => {
+  const channel = await getLogChannel(role.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🗑️ Role Deleted', COLORS.mod).addFields({ name: 'Role', value: `${role.name} (${role.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('roleUpdate', async (oldRole, newRole) => {
+  const channel = await getLogChannel(newRole.guild);
+  if (!channel) return;
+  if (oldRole.name === newRole.name && oldRole.color === newRole.color && oldRole.permissions.bitfield === newRole.permissions.bitfield) return;
+  const e = logEmbed('🔧 Role Updated', COLORS.warning)
+    .addFields({ name: 'Role', value: `<@&${newRole.id}>`, inline: false });
+  if (oldRole.name !== newRole.name) e.addFields({ name: 'Name', value: `${oldRole.name} → ${newRole.name}`, inline: false });
+  if (oldRole.hexColor !== newRole.hexColor) e.addFields({ name: 'Color', value: `${oldRole.hexColor} → ${newRole.hexColor}`, inline: false });
+  channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 🏠 Server updates
+client.on('guildUpdate', async (oldGuild, newGuild) => {
+  const channel = await getLogChannel(newGuild);
+  if (!channel) return;
+  const e = logEmbed('🏠 Server Updated', COLORS.warning);
+  let changed = false;
+  if (oldGuild.name !== newGuild.name) { e.addFields({ name: 'Name', value: `${oldGuild.name} → ${newGuild.name}`, inline: false }); changed = true; }
+  if (oldGuild.iconURL() !== newGuild.iconURL()) { e.addFields({ name: 'Icon', value: 'Server icon changed', inline: false }); e.setThumbnail(newGuild.iconURL()); changed = true; }
+  if (changed) channel.send({ embeds: [e] }).catch(() => {});
+});
+
+// 😀 Emoji create/update/delete
+client.on('emojiCreate', async (emoji) => {
+  const channel = await getLogChannel(emoji.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('😀 Emoji Added', COLORS.success).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false }).setThumbnail(emoji.imageURL())] }).catch(() => {});
+});
+
+client.on('emojiDelete', async (emoji) => {
+  const channel = await getLogChannel(emoji.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🗑️ Emoji Removed', COLORS.mod).addFields({ name: 'Emoji', value: `${emoji.name} (${emoji.id})`, inline: false })] }).catch(() => {});
+});
+
+client.on('emojiUpdate', async (oldEmoji, newEmoji) => {
+  if (oldEmoji.name === newEmoji.name) return;
+  const channel = await getLogChannel(newEmoji.guild);
+  if (!channel) return;
+  channel.send({ embeds: [logEmbed('🔧 Emoji Renamed', COLORS.warning).addFields({ name: 'Before', value: oldEmoji.name, inline: true }, { name: 'After', value: newEmoji.name, inline: true })] }).catch(() => {});
+});
+
+// ─── Event: Invite create/delete (keep cache fresh) ──────────────────────────
+client.on('inviteCreate', async (invite) => {
+  const map = invitesCache.get(invite.guild.id) || new Collection();
+  map.set(invite.code, { uses: invite.uses || 0, inviterId: invite.inviter?.id || null });
+  invitesCache.set(invite.guild.id, map);
+});
+
+client.on('inviteDelete', async (invite) => {
+  const map = invitesCache.get(invite.guild.id);
+  if (map) map.delete(invite.code);
+});
+
+// ─── Event: Reactions (reaction roles) ───────────────────────────────────────
+client.on('messageReactionAdd', async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch().catch(() => {});
+  const data = await db.get(`rr_${reaction.message.id}`);
+  if (!data) return;
+  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
+    const guild = reaction.message.guild;
+    const member = guild.members.cache.get(user.id);
+    const role = guild.roles.cache.get(data.roleId);
+    if (member && role) member.roles.add(role).catch(() => {});
+  }
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) await reaction.fetch().catch(() => {});
+  const data = await db.get(`rr_${reaction.message.id}`);
+  if (!data) return;
+  if (reaction.emoji.name === data.emoji || reaction.emoji.toString() === data.emoji) {
+    const guild = reaction.message.guild;
+    const member = guild.members.cache.get(user.id);
+    const role = guild.roles.cache.get(data.roleId);
+    if (member && role) member.roles.remove(role).catch(() => {});
+  }
+});
+
+// ─── Ready ────────────────────────────────────────────────────────────────────
+client.once('ready', async () => {
+  const count = Object.keys(commands).length;
+  console.log(`
+╔══════════════════════════════════════╗
+║   ✅ ${client.user.tag} connected!        ║
+║   📡 ${client.guilds.cache.size} server(s)               ║
+║   📦 ${count} commands loaded            ║
+║   🔤 Prefix: ${PREFIX}                       ║
+╚══════════════════════════════════════╝
+  `);
+  client.user.setActivity(`${PREFIX}help | ${count} commands`, { type: 3 });
+
+  // Build the initial invite cache for every guild so joins can be diffed correctly
+  for (const guild of client.guilds.cache.values()) {
+    await cacheGuildInvites(guild);
+  }
+
+  // Giveaway auto-end checker
+  checkGiveaways();
+  setInterval(checkGiveaways, 30000);
+});
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+client.login(TOKEN);

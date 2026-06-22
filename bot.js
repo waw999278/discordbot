@@ -42,6 +42,13 @@ const cooldowns = new Collection();
 // Cache of invites per guild: Map<guildId, Map<inviteCode, { uses, inviterId }>>
 const invitesCache = new Collection();
 
+// ── !getrole button → role mapping (order = button display order) ──────────
+const GETROLE_BUTTONS = [
+  { customId: 'getrole_announcement', label: 'Annoucement Ping',     emoji: '🧁', roleId: '1513293730952646696' },
+  { customId: 'getrole_giveaway',     label: 'Giveaway Ping',        emoji: '🎉', roleId: '1513293645716132030' },
+  { customId: 'getrole_trade',        label: 'Trade the Owner Ping', emoji: '🍓', roleId: '1513293795138076794' },
+];
+
 // ─── Colors & Helpers ──────────────────────────────────────────────────────────
 const COLORS = {
   primary:  0x5865F2,
@@ -641,47 +648,45 @@ const commands = {
 
   check: {
     category: 'Invites',
-    description: 'Checks who invited a member, and whether they joined through a personal invite or the vanity/custom link. Mention a member to check them, or run with no argument to check yourself',
+    description: 'Shows the list of members a user invited using their own invite link. Mention a member to check them, or run with no argument to check yourself',
     usage: '!check [@member]',
     async execute(message, args) {
       const user = message.mentions.users.first() || message.author;
 
-      const joinData = await db.get(`invitejoin_${message.guild.id}_${user.id}`);
-      if (!joinData) {
+      const all = await db.all();
+      const prefix = `invitejoin_${message.guild.id}_`;
+      const invitedIds = all
+        .filter(e => e.id.startsWith(prefix) && e.value && e.value.inviterId === user.id)
+        .map(e => e.id.slice(prefix.length));
+
+      if (invitedIds.length === 0) {
         return message.reply({
           embeds: [embed(
             '📨 Invite Check',
-            `No invite data found for **${user.tag}**.\n*(They may have joined before the bot was active.)*`,
+            `**${user.tag}** hasn't invited anyone yet.`,
             COLORS.info
           )]
         });
       }
 
-      // Joined via the server's vanity/custom invite link — not a personal invite
-      if (joinData.vanity || !joinData.inviterId) {
-        return message.reply({
-          embeds: [embed(
-            '📨 Invite Check',
-            `**${user.tag}** joined using the server's **vanity/custom invite link**${joinData.code ? ` (\`${joinData.code}\`)` : ''}, not a personal invite from a specific member.`,
-            COLORS.warning
-          )]
-        });
+      const names = invitedIds.map(id => `<@${id}>`);
+      let list;
+      if (names.length === 1) {
+        list = names[0];
+      } else {
+        list = `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
       }
 
-      const inviter = await client.users.fetch(joinData.inviterId).catch(() => null);
-      const stats = await getInviteStats(message.guild.id, joinData.inviterId);
+      const stats = await getInviteStats(message.guild.id, user.id);
       const total = totalInvites(stats);
-      const type = joinData.fake ? '⚠️ Fake (account < 7 days old)' : '✅ Regular';
 
       const e = new EmbedBuilder()
-        .setAuthor({ name: `Invite info for ${user.tag}`, iconURL: user.displayAvatarURL() })
+        .setAuthor({ name: `Invites by ${user.tag}`, iconURL: user.displayAvatarURL() })
         .setColor(COLORS.info)
         .setThumbnail(user.displayAvatarURL({ dynamic: true }))
         .setDescription(
-          `**${user.tag}** was invited by: **${inviter ? inviter.tag : `<@${joinData.inviterId}>`}**\n` +
-          `Invite used: \`${joinData.code || 'Unknown'}\` (personal invite link, not vanity/custom)\n` +
-          `Join type: ${type}\n\n` +
-          `**Inviter's stats:**\n` +
+          `**${user.tag}** invited ${list}\n\n` +
+          `**Stats:**\n` +
           `Total: **${total}** | Regular: **${stats.regular}** | Left: **${stats.left}** | Fake: **${stats.fake}** | Bonus: **${stats.bonus}**`
         )
         .setTimestamp();
@@ -1169,6 +1174,46 @@ const commands = {
       if (result.leveledUp) {
         await announceLevelUp(message.guild, member.id, result.level, message.channel);
       }
+    }
+  },
+
+  resetxp: {
+    category: 'Levels',
+    description: 'Reset your own XP, or a member\'s XP (Guild Manager only for other members)',
+    usage: '!resetxp [@member]',
+    async execute(message, args) {
+      const member = message.mentions.members.first();
+
+      if (member) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
+          return message.reply({ embeds: [errorEmbed('Insufficient permission. Only Guild Managers can reset another member\'s XP.')] });
+
+        const key = `xp_${message.guild.id}_${member.id}`;
+        await db.set(key, { xp: 0, level: 0 });
+        return message.reply({ embeds: [successEmbed(`**${member.user.tag}**'s XP has been reset to **0**.`)] });
+      }
+
+      const key = `xp_${message.guild.id}_${message.author.id}`;
+      await db.set(key, { xp: 0, level: 0 });
+      message.reply({ embeds: [successEmbed('Your XP has been reset to **0**.')] });
+    }
+  },
+
+  resetxpall: {
+    category: 'Levels',
+    description: 'Reset the XP of every member on the server (Guild Manager only)',
+    usage: '!resetxpall',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
+        return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
+      const all = await db.all();
+      const prefix = `xp_${message.guild.id}_`;
+      const entries = all.filter(e => e.id.startsWith(prefix));
+      for (const entry of entries) {
+        await db.set(entry.id, { xp: 0, level: 0 });
+      }
+      message.reply({ embeds: [successEmbed(`Reset XP for **${entries.length}** member(s) on this server.`)] });
     }
   },
 
@@ -2111,21 +2156,37 @@ const commands = {
   },
 
   // ══════════════ 🎭 REACTION ROLES ══════════════
-  reactionrole: {
+  getrole: {
     category: 'ReactionRoles',
-    description: 'Create a reaction role message',
-    usage: '!reactionrole #channel [emoji] [@role]',
+    description: 'Sends the role-button message in the chosen channel',
+    usage: '!getrole #channel',
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
-      const channel = message.mentions.channels.first();
-      const role = message.mentions.roles.first();
-      if (!channel || !role || !args[1]) return message.reply({ embeds: [errorEmbed('Usage: !reactionrole #channel [emoji] @role')] });
-      const emoji = args[1];
-      const e = embed('🎭 Reaction Roles', `React with ${emoji} to get the **${role.name}** role!`, COLORS.primary);
-      const msg = await channel.send({ embeds: [e] });
-      await msg.react(emoji);
-      await db.set(`rr_${msg.id}`, { roleId: role.id, emoji });
-      message.reply({ embeds: [successEmbed(`Reaction role message created in <#${channel.id}>.`)] });
+
+      const channel = message.mentions.channels.first() || message.guild.channels.cache.get(args[0]);
+      if (!channel || !channel.isTextBased?.()) return message.reply({ embeds: [errorEmbed('Usage: `!getrole #channel`')] });
+
+      const e = new EmbedBuilder()
+        .setTitle('Reaction Roles')
+        .setColor(COLORS.primary)
+        .setDescription(
+          'Click the follow buttons below this message in order to receive the following. If you would like to remove the role, please click the button again\n\n' +
+          `<@&${GETROLE_BUTTONS[1].roleId}> Notifies you when a giveaway has begun.\n` +
+          `<@&${GETROLE_BUTTONS[0].roleId}> Notifies you when we have a short announcement\n` +
+          `<@&${GETROLE_BUTTONS[2].roleId}> Trade with the Owners`
+        );
+
+      const row = new ActionRowBuilder().addComponents(
+        GETROLE_BUTTONS.map(b => new ButtonBuilder()
+          .setCustomId(b.customId)
+          .setLabel(b.label)
+          .setEmoji(b.emoji)
+          .setStyle(ButtonStyle.Primary)
+        )
+      );
+
+      await channel.send({ embeds: [e], components: [row] });
+      message.reply({ embeds: [successEmbed(`Role button message sent in <#${channel.id}>.`)] });
     }
   },
 
@@ -2640,6 +2701,33 @@ client.on('inviteCreate', async (invite) => {
 client.on('inviteDelete', async (invite) => {
   const map = invitesCache.get(invite.guild.id);
   if (map) map.delete(invite.code);
+});
+
+// ─── Button-based role buttons (!getrole) ──────────────────────────────────
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  const btnConfig = GETROLE_BUTTONS.find(b => b.customId === interaction.customId);
+  if (!btnConfig) return;
+
+  const role = interaction.guild.roles.cache.get(btnConfig.roleId);
+  if (!role) {
+    return interaction.reply({ embeds: [errorEmbed('This role no longer exists. Please contact a server admin.')], ephemeral: true });
+  }
+
+  const member = interaction.member;
+  try {
+    if (member.roles.cache.has(role.id)) {
+      await member.roles.remove(role);
+      await interaction.reply({ embeds: [successEmbed(`The **${role.name}** role has been removed.`)], ephemeral: true });
+    } else {
+      await member.roles.add(role);
+      await interaction.reply({ embeds: [successEmbed(`You now have the **${role.name}** role!`)], ephemeral: true });
+    }
+  } catch (err) {
+    console.error('[getrole] Error toggling role:', err);
+    await interaction.reply({ embeds: [errorEmbed('Something went wrong while updating your roles. Please make sure the bot\'s role is above this role and try again.')], ephemeral: true }).catch(() => {});
+  }
 });
 
 // ─── Reaction roles ───────────────────────────────────────────────────────────

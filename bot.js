@@ -669,12 +669,16 @@ const commands = {
         });
       }
 
-      const names = invitedIds.map(id => `<@${id}>`);
+      const resolvedNames = await Promise.all(invitedIds.map(async id => {
+        const u = await client.users.fetch(id).catch(() => null);
+        return u ? `**${u.tag}**` : `<@${id}>`;
+      }));
+
       let list;
-      if (names.length === 1) {
-        list = names[0];
+      if (resolvedNames.length === 1) {
+        list = resolvedNames[0];
       } else {
-        list = `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+        list = `${resolvedNames.slice(0, -1).join(', ')} and ${resolvedNames[resolvedNames.length - 1]}`;
       }
 
       const stats = await getInviteStats(message.guild.id, user.id);
@@ -691,6 +695,47 @@ const commands = {
         )
         .setTimestamp();
       message.reply({ embeds: [e] });
+    }
+  },
+
+  verif: {
+    category: 'Invites',
+    description: 'Lists the members invited by a user (like !check) and flags likely alt accounts using an account-age heuristic',
+    usage: '!verif [@member]',
+    async execute(message, args) {
+      const user = message.mentions.users.first() || message.author;
+
+      const all = await db.all();
+      const prefix = `invitejoin_${message.guild.id}_`;
+      const invitedIds = all
+        .filter(e => e.id.startsWith(prefix) && e.value && e.value.inviterId === user.id)
+        .map(e => e.id.slice(prefix.length));
+
+      if (invitedIds.length === 0) {
+        return message.reply({ embeds: [embed('🔎 Invite Verification', `**${user.tag}** hasn't invited anyone yet.`, COLORS.info)] });
+      }
+
+      const inviterUser = await client.users.fetch(user.id).catch(() => null);
+      const inviterCreated = inviterUser ? inviterUser.createdTimestamp : null;
+
+      const lines = await Promise.all(invitedIds.map(async id => {
+        const invitedUser = await client.users.fetch(id).catch(() => null);
+        if (!invitedUser) return `<@${id}> — unknown user`;
+
+        // Heuristic only — Discord bots have no access to IP addresses.
+        // Accounts created within a few minutes of the inviter's account are flagged as likely alts.
+        const isLikelyAlt = inviterCreated !== null && Math.abs(invitedUser.createdTimestamp - inviterCreated) < 10 * 60 * 1000;
+        return `**${invitedUser.tag}** ${isLikelyAlt ? '(likely alt ⚠️)' : '(not an alt)'}`;
+      }));
+
+      message.reply({
+        embeds: [embed(
+          '🔎 Invite Verification',
+          `**${user.tag}** invited:\n${lines.join('\n')}\n\n` +
+          `*Note: Discord bots cannot access IP addresses. This uses an account-creation-time heuristic instead, which is an estimate, not a guarantee.*`,
+          COLORS.info
+        )]
+      });
     }
   },
 
@@ -917,6 +962,73 @@ const commands = {
         targetChannel.send({ embeds: [resultEmbed] }).catch(() => {});
         loadingMsg.edit({ embeds: [resultEmbed] }).catch(() => {});
       }
+    }
+  },
+
+  bypass: {
+    category: 'Moderation',
+    description: 'Grants a member immunity to this channel\'s slowmode. No mention = grants it to yourself. Mentioning another member requires Guild Manager permission.',
+    usage: '!bypass [@member]',
+    async execute(message, args) {
+      const mentioned = message.mentions.members.first();
+      const target = mentioned || message.member;
+
+      if (mentioned && mentioned.id !== message.author.id) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) && message.author.id !== OWNER_ID)
+          return message.reply({ embeds: [errorEmbed('Insufficient permission. Only Guild Managers can bypass slowmode for another member.')] });
+      }
+
+      try {
+        await message.channel.permissionOverwrites.edit(target.id, { ManageMessages: true });
+      } catch (err) {
+        console.error('[bypass] Error:', err);
+        return message.reply({ embeds: [errorEmbed('Failed to grant slowmode immunity. Make sure I have the **Manage Channel** permission here.')] });
+      }
+
+      message.reply({ embeds: [successEmbed(`**${target.user.tag}** is now immune to slowmode in <#${message.channel.id}>.`)] });
+    }
+  },
+
+  clean: {
+    category: 'Moderation',
+    description: 'Deletes all of the bot\'s own messages (command responses) in this channel',
+    usage: '!clean',
+    async execute(message, args) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages))
+        return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
+
+      let totalDeleted = 0;
+      let lastId;
+
+      try {
+        while (true) {
+          const options = lastId ? { limit: 100, before: lastId } : { limit: 100 };
+          const fetched = await message.channel.messages.fetch(options);
+          if (fetched.size === 0) break;
+          lastId = fetched.last().id;
+
+          const botMsgs = fetched.filter(m => m.author.id === client.user.id);
+          const bulkDeletable = botMsgs.filter(m => Date.now() - m.createdTimestamp < 14 * 24 * 60 * 60 * 1000);
+          const tooOld = botMsgs.filter(m => Date.now() - m.createdTimestamp >= 14 * 24 * 60 * 60 * 1000);
+
+          if (bulkDeletable.size > 0) {
+            await message.channel.bulkDelete(bulkDeletable, true);
+            totalDeleted += bulkDeletable.size;
+          }
+          for (const m of tooOld.values()) {
+            await m.delete().catch(() => {});
+            totalDeleted++;
+          }
+
+          if (fetched.size < 100) break;
+        }
+      } catch (err) {
+        console.error('[clean] Error:', err);
+      }
+
+      await message.delete().catch(() => {});
+      const m = await message.channel.send({ embeds: [successEmbed(`Deleted **${totalDeleted}** bot message(s) in this channel.`)] });
+      setTimeout(() => m.delete().catch(() => {}), 5000);
     }
   },
 
@@ -1883,9 +1995,6 @@ const commands = {
     async execute(message, args) {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) return message.reply({ embeds: [errorEmbed('Insufficient permission.')] });
 
-      // ── Sauvegarder l'URL de l'image AVANT toute suppression du message ──
-      const image = message.attachments.first()?.url || null;
-
       const winners = parseInt(args[0]);
       const duration = parseDuration(args[1]);
 
@@ -1906,36 +2015,65 @@ const commands = {
         });
       }
 
+      // ── Re-upload the attached image as a fresh file so it doesn't break when the
+      // ── command message gets deleted later (Discord ties attachment URLs to their message).
+      let imageFile = null;
+      let imageRef = null;
+      const sourceAttachment = message.attachments.first();
+      if (sourceAttachment) {
+        try {
+          const res = await fetch(sourceAttachment.url);
+          const buffer = Buffer.from(await res.arrayBuffer());
+          const ext = sourceAttachment.name?.split('.').pop() || 'png';
+          const fileName = `giveaway.${ext}`;
+          imageFile = new AttachmentBuilder(buffer, { name: fileName });
+          imageRef = `attachment://${fileName}`;
+        } catch (err) {
+          console.error('[gcreate] Failed to re-upload image:', err);
+        }
+      }
+
       const endTime = Date.now() + duration;
 
       let desc = `**Prize:** ${prize}\n**Winners:** ${winners}\n**Ends:** <t:${Math.floor(endTime / 1000)}:R> (<t:${Math.floor(endTime / 1000)}:F>)\n**Hosted by:** <@${message.author.id}>`;
       if (description) desc += `\n\n${description}`;
       desc += `\n\nReact with 🎉 to enter!`;
 
-      // Premier envoi du message du giveaway
       const initialEmbed = new EmbedBuilder()
         .setTitle('🎉 GIVEAWAY 🎉')
         .setDescription(desc)
         .setColor(COLORS.xp)
         .setTimestamp(endTime)
         .setFooter({ text: 'Giveaway starting...' });
-      if (image) initialEmbed.setImage(image);
+      if (imageRef) initialEmbed.setImage(imageRef);
 
-      const giveawayMsg = await targetChannel.send({ embeds: [initialEmbed] });
-      await giveawayMsg.react('🎉');
+      let giveawayMsg;
+      try {
+        giveawayMsg = await targetChannel.send({ embeds: [initialEmbed], files: imageFile ? [imageFile] : [] });
+      } catch (err) {
+        console.error('[gcreate] Failed to send giveaway message:', err);
+        return message.reply({ embeds: [errorEmbed('Failed to create the giveaway. Make sure I can send messages and embed links in that channel.')] });
+      }
 
-      // Maintenant qu'on a l'ID du message, on reconstruit l'embed complet avec
-      // le footer correct ET l'image (en recréant l'embed depuis zéro pour éviter
-      // que EmbedBuilder.from() écrase l'image).
-      const finalEmbed = new EmbedBuilder()
-        .setTitle('🎉 GIVEAWAY 🎉')
-        .setDescription(desc)
-        .setColor(COLORS.xp)
-        .setTimestamp(endTime)
-        .setFooter({ text: `Giveaway ID: ${giveawayMsg.id}` });
-      if (image) finalEmbed.setImage(image); // ← image re-appliquée sur le nouvel embed
+      // From here on, the giveaway message exists — failures below are non-fatal.
+      try {
+        await giveawayMsg.react('🎉');
+      } catch (err) {
+        console.error('[gcreate] Failed to add reaction:', err);
+      }
 
-      await giveawayMsg.edit({ embeds: [finalEmbed] }).catch(() => {});
+      try {
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('🎉 GIVEAWAY 🎉')
+          .setDescription(desc)
+          .setColor(COLORS.xp)
+          .setTimestamp(endTime)
+          .setFooter({ text: `Giveaway ID: ${giveawayMsg.id}` });
+        if (imageRef) finalEmbed.setImage(imageRef);
+        await giveawayMsg.edit({ embeds: [finalEmbed] });
+      } catch (err) {
+        console.error('[gcreate] Failed to update footer:', err);
+      }
 
       await db.set(`giveaway_${giveawayMsg.id}`, {
         guildId: message.guild.id,
@@ -1947,11 +2085,11 @@ const commands = {
         hostId: message.author.id,
         ended: false,
         winnerIds: [],
-        image,
+        image: imageRef,
       });
 
-      message.reply({ embeds: [successEmbed(`Giveaway created in <#${targetChannel.id}>! 🎉\nID: \`${giveawayMsg.id}\``)] });
-      message.delete().catch(() => {});
+      await message.reply({ embeds: [successEmbed(`Giveaway created in <#${targetChannel.id}>! 🎉\nID: \`${giveawayMsg.id}\``)] });
+      await message.delete().catch(() => {});
     }
   },
 
